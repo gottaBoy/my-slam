@@ -8,4 +8,4 @@ export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
 export CONTAINER_NAME="${CONTAINER_NAME:-slam-ros2-dev}"
 
-exec docker compose exec slam-ros2-dev bash -lc 'exec gz sim "$@"' bash "$@"
+exec docker compose exec slam-ros2-dev /usr/local/bin/slam-ros2-entrypoint gz sim "$@"

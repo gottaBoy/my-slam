@@ -6,35 +6,39 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        USER_NAME: dev
-        USER_UID: ${HOST_UID:-1000}
-        USER_GID: ${HOST_GID:-1000}
+        CONTAINER_USER: ${CONTAINER_USER:-nvidia}
+        HOST_UID: ${HOST_UID:-1000}
+        HOST_GID: ${HOST_GID:-1000}
     image: ${IMAGE_NAME:-slam-ros2-dev:jazzy}
     container_name: ${CONTAINER_NAME:-slam-ros2-dev}
     init: true
     stdin_open: true
     tty: true
     working_dir: /workspace
-    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    user: ${CONTAINER_USER:-nvidia}
     environment:
       ROS_DISTRO: jazzy
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-49}
       GZ_PARTITION: ${GZ_PARTITION:-slam-dev-49}
       DISPLAY: ${DISPLAY:-:1}
-      XAUTHORITY: /home/dev/.Xauthority
+      USER: ${CONTAINER_USER:-nvidia}
+      LOGNAME: ${CONTAINER_USER:-nvidia}
+      HOME: /home/${CONTAINER_USER:-nvidia}
+      BASH_ENV: /workspace/my-slam/ros-env.sh
+      XAUTHORITY: /home/${CONTAINER_USER:-nvidia}/.Xauthority
       QT_X11_NO_MITSHM: "1"
       LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-1}
       XDG_RUNTIME_DIR: /tmp/xdg-${HOST_UID:-1000}
     volumes:
       - type: bind
-        source: .
+        source: ..
         target: /workspace
       - type: bind
         source: /tmp/.X11-unix
         target: /tmp/.X11-unix
       - type: bind
         source: ${XAUTHORITY_FILE:-/run/user/1000/gdm/Xauthority}
-        target: /home/dev/.Xauthority
+        target: /home/${CONTAINER_USER:-nvidia}/.Xauthority
         read_only: true
     networks:
       - slam-ros2-dev-net

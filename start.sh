@@ -32,7 +32,7 @@ fi
 docker compose up -d --build
 
 echo "Started ${CONTAINER_NAME}"
-echo "Workspace: ${SCRIPT_DIR} -> /workspace"
+echo "Workspace: ${SCRIPT_DIR}/.. -> /workspace"
 echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}"
 echo "GZ_PARTITION=${GZ_PARTITION}"
 echo
