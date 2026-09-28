@@ -1,0 +1,9 @@
+.git
+.git/
+**/.git
+**/.git/
+build
+install
+log
+__pycache__
+*.pyc
