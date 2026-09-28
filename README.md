@@ -187,3 +187,50 @@ q = tfs.axangles.axangle2quat([0, 0, 1], 1.57)
 停止本环境只执行本目录 Compose project 的 `down`。
 
 如果需要同时运行 ROS 2 仿真，保持本环境默认的 `ROS_DOMAIN_ID=49` 和 `GZ_PARTITION=slam-dev-49`
+
+## 生成项目
+```bash
+ros2 pkg create --build-type ament_python \
+  --dependencies rclpy geometry_msgs tf_ros tf_transformations \
+  --license Apache-2.0 \
+  my_tf_pkg
+```
+
+## 项目结构
+```bash
+my_tf_pkg/
+├── my_tf_pkg/
+│   └── __init__.py
+├── resource/
+│   └── my_tf_pkg
+├── test/
+├── package.xml       # 包信息（依赖写在这里）
+├── setup.py          # Python 包安装配置
+└── setup.cfg
+```
+
+## 安装插件
+```bash
+sudo apt update
+sudo apt install ros-$ROS_DISTRO-tf-transformations
+sudo apt install ros-jazzy-tf-transformations
+sudo pip3 install tf-transformations
+source /opt/ros/$ROS_DISTRO/setup.bash
+```
+
+## 调试运行-1
+```bash
+colcon build 
+source install/setup.bash
+ros2 run my_tf_pkg static_tf_broadcaster
+ros2 topic list 
+ros2 topic echo /tf_static
+```
+
+## 调试运行-2
+```bash
+colcon build 
+source install/setup.bash
+ros2 run my_tf_pkg dynamic_tf_broadcaster
+ros2 run tf2_ros tf2_echo base_link bottle_link
+```
