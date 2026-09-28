@@ -100,8 +100,90 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-## 与 OOMWOO 的隔离
+## 3d 
+```bash
+ros2 run tf2_ros static_transform_publisher \
+  --x 0.1 --y 0.0 --z 0.2 \
+  --roll 0.0 --pitch 0.0 --yaw 0.0 \
+  --frame-id base_link --child-frame-id base_laser
 
-本目录的 Compose 配置不会操作 `oomwoo-feature-dev`、`oomwoo-rviz` 或 `oomwoo-dev-local`，也不使用 OOMWOO 镜像、容器、卷或网络。停止本环境只执行本目录 Compose project 的 `down`。
+ros2 run tf2_ros static_transform_publisher \
+  --x 0.3 --y 0.0 --z 0.0 \
+  --roll 0.0 --pitch 0.0 --yaw 0.0 \
+  --frame-id base_laser --child-frame-id wall_point
 
-如果需要同时运行 ROS 2 仿真，保持本环境默认的 `ROS_DOMAIN_ID=49` 和 `GZ_PARTITION=slam-dev-49`，不要改成 OOMWOO 主线使用的值。
+ros2 run tf2_ros tf2_echo base_link wall_point
+
+# 查看 TF 树结构
+ros2 run tf2_tools tf2_monitor
+
+# 查看两个 frame 之间的变换
+ros2 run tf2_ros tf2_echo base_link laser_frame
+
+# 查看所有 frame
+ros2 topic echo /tf_static
+
+# pdf
+ros2 run tf2_tools view_frames
+ros2 topic info /tf_static
+```
+
+### `tf2_echo` 输出说明
+
+执行：
+
+```bash
+ros2 run tf2_ros tf2_echo base_link wall_point
+```
+
+启动初期如果 `base_link` 还没有被发布，可能出现：
+
+```text
+Waiting for transform base_link -> wall_point:
+Invalid frame ID "base_link" passed to canTransform argument target_frame
+```
+
+这表示当时 TF 树中还不存在 `base_link`。发布 TF 的节点启动后，若持续输出以下结果，说明变换已经可用：
+
+```text
+Translation: [0.400, 0.000, 0.200]
+Rotation: in Quaternion (xyzw) [0.000, 0.000, 0.000, 1.000]
+Rotation: in RPY (radian) [0.000, -0.000, 0.000]
+```
+
+即平移为 `(0.4, 0.0, 0.2)`，旋转为单位旋转。若一直等待，应检查 TF 发布节点、frame 名称以及 `ROS_DOMAIN_ID` 是否一致。
+
+## 3d tools
+```bash
+sudo apt install ros-humble-mrpt2 -y
+3d-rotation-converter
+
+sudo apt-get install ros-humble-rqt-tf-tree
+
+
+sudo apt install ros-$ROS_DISTRO-tf-transformations
+from tf_transformations import quaternion_from_euler, euler_from_quaternion
+
+# 欧拉角 → 四元数
+q = quaternion_from_euler(0, 0, 1.57)  # 绕 z 轴转 90°
+
+# 四元数 → 欧拉角
+roll, pitch, yaw = euler_from_quaternion([0, 0, 0.707, 0.707])
+sudo pip3 install transforms3d
+import transforms3d as tfs
+
+# 欧拉角 → 旋转矩阵
+R = tfs.euler.euler2mat(0, 0, 1.57)
+
+# 旋转矩阵 → 四元数
+q = tfs.quaternions.mat2quat(R)
+
+# 轴角 → 四元数
+q = tfs.axangles.axangle2quat([0, 0, 1], 1.57)
+```
+
+## domainID
+
+停止本环境只执行本目录 Compose project 的 `down`。
+
+如果需要同时运行 ROS 2 仿真，保持本环境默认的 `ROS_DOMAIN_ID=49` 和 `GZ_PARTITION=slam-dev-49`
