@@ -155,11 +155,12 @@ Rotation: in RPY (radian) [0.000, -0.000, 0.000]
 
 ## 3d tools
 ```bash
-sudo apt install ros-humble-mrpt2 -y
+sudo apt install ros-jazzy-mrpt2 -y
 3d-rotation-converter
 
-sudo apt-get install ros-humble-rqt-tf-tree
-
+sudo apt install ros-$ROS_DISTRO-rqt-tf-tree
+sudo apt install ros-jazzy-rqt-tf-tree
+rm -rf ~/.config/ros.org/rqt_gui.ini
 
 sudo apt install ros-$ROS_DISTRO-tf-transformations
 from tf_transformations import quaternion_from_euler, euler_from_quaternion
@@ -194,6 +195,11 @@ ros2 pkg create --build-type ament_python \
   --dependencies rclpy geometry_msgs tf_ros tf_transformations \
   --license Apache-2.0 \
   my_tf_pkg
+
+ros2 pkg create --build-type ament_cmake \
+  --dependencies rclcpp tf2_ros geometry_msgs tf2_geometry_msgs \
+  --license Apache-2.0 \
+  my_tf_cpp
 ```
 
 ## 项目结构
@@ -233,4 +239,31 @@ colcon build
 source install/setup.bash
 ros2 run my_tf_pkg dynamic_tf_broadcaster
 ros2 run tf2_ros tf2_echo base_link bottle_link
+```
+
+## rviz2
+```bash
+rviz2
+rviz2 -d 
+```
+
+## turtlesim
+```bash
+sudo apt update
+sudo apt install ros-jazzy-turtlesim
+ros2 pkg executables turtlesim
+ros2 run turtlesim turtlesim_node
+ros2 run turtlesim turtle_teleop_key
+ros2 topic list
+ros2 bag record /turtle1/cmd_vel
+
+
+sudo apt update
+sudo apt install ros-jazzy-rqt-robot-steering
+ros2 run rqt_robot_steering rqt_robot_steering
+```
+
+## urdf 
+```bash
+urdf_to_graphviz first_robot.urdf
 ```

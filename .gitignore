@@ -1,3 +1,10 @@
-build
-install
-log
+src/build
+src/install
+src/log
+src/my_tf_pkg/build
+src/my_tf_pkg/install
+src/my_tf_pkg/log
+src/fishbot_description/build
+src/fishbot_description/install
+src/fishbot_description/log
+rosbag2_*
