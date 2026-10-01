@@ -488,6 +488,7 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | `tools/probe_wheel_speed.py` | 由轮速反推控制器**实际**下发的参数值（判定「参数是否真的生效」） |
 | `tools/set_initial_pose.py` | 设 AMCL 初始位姿；`--from-gz` 直接对齐真值 |
 | `tools/check_map_point.py` | 查地图上某点是否可走（下目标点前先确认，避免误判导航失败） |
+| `tools/check_topic_health.sh` | 检查传感器话题健康：发布者数必须为 1 + 频率是否达标（切换 `sensor_bridge` 后必跑） |
 | `tools/map_reachability.py` | 判断「A 能不能走到 B」+ 算最宽路线的最窄处半径（占用判据按 trinary 阈值，别再自己写） |
 | `tools/probe-localization-vs-truth.sh` | 同时录 AMCL 位姿和 Gazebo 真值，用来区分「物理被挡」和「定位飘了」 |
 | `tools/probe_cmd_chain.py` | 同时录 Nav2 速度链三级话题，定位「谁把速度清零了」 |
@@ -505,6 +506,7 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | 各话题发布者唯一 | 都是 `1` | `./shell.sh -c 'ros2 topic info /scan \| grep "Publisher count"'` |
 | `/scan` 频率 | ~10 Hz | `./shell.sh -c 'timeout 15 ros2 topic hz /scan'` |
 | `/imu` 频率 | ~100 Hz | `./shell.sh -c 'timeout 8 ros2 topic hz /imu'` |
+| **传感器话题健康（一条命令覆盖上面三项）** | `exit=0` | `./shell.sh -c 'bash /workspace/my-slam/tools/check_topic_health.sh; echo exit=$?'` |
 | 遥控仍可用 | `/odom` 有变化 | `./teleop.sh --forward`，然后看 `/odom` |
 | `/cmd_vel` 类型 | `TwistStamped` | `./shell.sh -c 'ros2 topic info /cmd_vel'` |
 
@@ -1018,21 +1020,42 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/TwistStamped \
 > 无法复现**；当初把它归因于「上游构建缺陷」是**推测**，没有证据支持。
 > 以后要再验证：`bash tools/probe-bridge-types.sh`（自带对照组与判读说明）。
 
-**现状**：`/imu` 和 `/camera/*` 仍然由本仓库自己的 `gz_sensor_bridge` 负责
-（直接用 gz-transport 订阅并发布 ROS 消息，见 `src/gz_sensor_bridge/`）。
-它的定位从「绕开上游 bug 的必要手段」改为**一个可用的替代实现** —— 实测数据健康、
-接口正常，没有理由为了“回归内置桥”去大改一个已验证工作的部件。
+**现状：两套实现都保留，用 launch 参数二选一**（2026-10-01 实测两者等价）：
+
+```bash
+./sim.sh --clean --headless -- sensor_bridge:=parameter_bridge   # 用内置桥
+./sim.sh --clean --headless                                       # 默认：用自研桥
+```
+
+只影响 `/imu` 与 `/camera/*` 这 5 个话题；`/scan`、`/scan/points`、`/clock`
+一律交给 `parameter_bridge`。**两者绝不能同时开** —— 同一话题会出现两个发布者，
+频率翻倍、数据重复。
+
+两组实测对照（同为 headless）：
+
+| 项目 | `parameter_bridge` | `gz_sensor_bridge`（默认） |
+| --- | --- | --- |
+| 6 个传感器话题的发布者数 | 全 = 1 | 全 = 1 |
+| `/scan` | 9.94 Hz | 9.97 Hz |
+| `/imu` | 99.43 Hz | 99.60 Hz |
+| `/camera/camera_info` | 9.94 Hz | 9.99 Hz |
+| `/imu` 的 `frame_id` | `imu_link` | `imu_link` |
+| `tools/check_sensor_msgs.py` | 退出码 0 | 退出码 0 |
+| 启动日志里 ROS→GZ 桥 | 0 条 | 0 条 |
+
+自研桥的定位是**「一个可用的替代实现」，不是「绕开上游 bug 的必要手段」** ——
+原始理由已不成立；保留它是因为已经逐项验证、有测试覆盖，删掉没有收益。
 
 实测结果（headless 仿真，2026-09-30）：
 
-| 话题 | 频率 | 数据自洽性 | 谁负责 |
+| 话题 | 频率 | 数据自洽性 | 谁负责（默认） |
 | --- | --- | --- | --- |
 | `/imu` | 100.2 Hz | `frame_id=imu_link`，静止时重力 9.71 m/s² | 自研桥 |
 | `/camera/image` | 7.5 Hz | 800×600 `rgb8`，`len(data)==step*height` | 自研桥 |
 | `/camera/depth_image` | 2.6 Hz | 800×600 `32FC1`，长度自洽 | 自研桥 |
 | `/camera/camera_info` | 10.0 Hz | `plumb_bob`，K/P 非零且 cx/cy 居中 | 自研桥 |
 | `/camera/points` | 1.5 Hz | `point_step/row_step/data` 长度自洽 | 自研桥 |
-| `/scan` `/scan/points` | 5.0 / 5.0 Hz | — | `parameter_bridge` |
+| `/scan` `/scan/points` | 10.0 / 10.3 Hz | — | `parameter_bridge` |
 | `/clock` `/odom` `/tf` `/joint_states` | ~2000 / 50 / 38 / 100 Hz | — | `parameter_bridge` + 控制器 |
 
 两边的 QoS 都是 `RELIABLE`（与 `parameter_bridge` 默认一致），所以 rviz / slam_toolbox /

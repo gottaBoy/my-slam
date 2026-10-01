@@ -1,22 +1,35 @@
 // 把 Gazebo Sim 的传感器话题直接转成 ROS 话题的小桥节点。
 //
 // ============================================================================
-// 为什么需要这个节点
+// 这个节点是干什么的 / 为什么还留着它
 // ============================================================================
-// 本环境（aarch64 / Ubuntu 24.04 / ros_gz_bridge 1.0.24-1noble.20260904）里，
-// ros_gz_bridge 的 parameter_bridge 对下面这些话题报：
-//     Failed to create a bridge ...: No template specialization for the pair
-//   /imu、/camera/image、/camera/depth_image、/camera/camera_info（/camera/points 时好时坏）
+// 它用 gz-transport 订阅 gz 话题、按上游的转换逻辑构造 ROS 消息再发布，
+// 覆盖 /imu 与那 4 个 /camera/* 话题。
 //
-// 已确认（不是猜测）：
-//   * 用 gdb 打断点看到传给 get_factory() 的类型字符串完全正确
-//     （ROS=[sensor_msgs/msg.Imu] GZ=[gz.msgs.IMU]），是库内部查表返回了 null；
-//   * 这已经是 apt 源里 arm64 的最新版本（和清华镜像对比过），dpkg -V 也显示文件完好；
-//   * 结论：上游这个 arm64 构建的问题，在本仓库层面修不了。
-// 详见 README「已知问题」一节、tools/exp-bridge-repro.sh、tools/gdb-get-factory.gdb。
+// ⚠️ 这里原本写的是「parameter_bridge 有上游 arm64 构建缺陷，所以必须自己实现」，
+//    那个结论已经**撤回**（2026-10-01）。简单回顾：
 //
-// 所以本节点自己用 gz-transport 订阅 gz 话题、构造 ROS 消息发布，
-// 完全不经过 parameter_bridge。
+//   【2026-09-30】parameter_bridge 对 /imu 和 4 个 /camera/* 报
+//        Failed to create a bridge ...: No template specialization for the pair
+//     当时记录的观察是「同一份参数连跑 3 次，失败集合完全相同」。
+//
+//   【2026-10-01 复核】在同一个容器里（没重建镜像、没换容器）逐个场景重试，
+//     那个失败**一次都没再出现**：单条 /imu（单向/双向都试）、当时记录在案的
+//     失败组合、以及原始的 9 条桥 + --ros-args remapping，全部 0 失败。
+//     复核脚本：tools/probe-bridge-types.sh
+//
+//   所以当时的观察应该是真的，但**原因至今未定位、且当前无法复现**；
+//   把它归因于上游缺陷属于推测，不成立。（当初那段 gdb 取证依赖按 aarch64 ABI
+//   从 x0/x1 取参，在 Release 构建下本身就有误读风险。）
+//
+// 【现状】本节点**不是必需的**：parameter_bridge 实测同样能桥这 5 个话题，
+//   两条路都可用且实测等价（发布者数、频率、数据自洽性、frame_id 均一致）。
+//   选哪条由 launch 参数 sensor_bridge 决定，
+//   见 fishbot_description/launch/gazebo_sim_gz.launch.py：
+//       sensor_bridge:=gz_sensor_bridge  （默认）本节点
+//       sensor_bridge:=parameter_bridge  ros_gz_bridge 内置桥
+//   保留本节点的理由：它已经逐项验证过、工作正常，
+//   没有理由为了“回归内置桥”去删掉一个能用且测试覆盖的部件。
 //
 // ============================================================================
 // 覆盖的话题（与 urdf/fishbot/plugins/gz_sensor_plugin.xacro 一一对应）
@@ -27,7 +40,7 @@
 //   gz /camera/camera_info -> ROS /camera/camera_info  sensor_msgs/msg/CameraInfo
 //   gz /camera/points      -> ROS /camera/points       sensor_msgs/msg/PointCloud2
 //
-// 仍然由 parameter_bridge 负责的：/scan、/scan/points 和时钟 —— 那几条实测是好的。
+// 本节点不管的（由 parameter_bridge 负责）：/scan、/scan/points 和时钟。
 //
 // ============================================================================
 // 消息字段映射：逐条照抄上游 ros_gz_bridge 的转换代码
@@ -164,7 +177,7 @@ public:
     }
 
     RCLCPP_INFO(get_logger(),
-                "gz 传感器桥已就绪（绕开 parameter_bridge）："
+                "gz 传感器桥已就绪："
                 "/imu /camera/image /camera/depth_image /camera/camera_info /camera/points");
   }
 

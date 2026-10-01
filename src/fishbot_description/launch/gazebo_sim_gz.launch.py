@@ -31,6 +31,18 @@ ros_gz_sim 重写，功能与书上对应：
     /camera/camera_info, /camera/points  <-  rgbd_camera (camera_optical_link)
     /clock                   <-  Gazebo（供 use_sim_time 使用）
 
+/imu 与 /camera/* 这 5 个传感器话题有**两套实现可选**，用 launch 参数
+`sensor_bridge` 切换（两者都实测可用）：
+
+    sensor_bridge:=gz_sensor_bridge   （默认）本仓库自研节点，直接用
+                                      gz-transport 订阅再发 ROS 消息
+    sensor_bridge:=parameter_bridge   ros_gz_bridge 内置桥，多传 5 条桥参数
+
+选哪个只影响 /imu 与 /camera/*；/scan 与 /clock 一律交给 parameter_bridge。
+**两者绝不能同时开** —— 同一话题会出现两个发布者，命令频率翻倍、数据重复。
+（库里 `gz_sensor_bridge` 的定位是「一个可用的替代实现」，不是「绕开上游 bug
+的必要手段」，原因见下方注释。）
+
 原文件 gazebo_sim.launch.py 保持不动，两条路并存。
 """
 
@@ -93,6 +105,26 @@ BRIDGE_TOPICS = [
     '/scan/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
 ]
 
+# 只有在 sensor_bridge:=parameter_bridge 时才会用到的 5 条参数。
+# 话题名/类型已逐个核对过（`gz topic -i -t <话题>`，gz sim 8.15.0）：
+#     /imu                 gz.msgs.IMU
+#     /camera/image        gz.msgs.Image
+#     /camera/depth_image  gz.msgs.Image
+#     /camera/camera_info  gz.msgs.CameraInfo
+#     /camera/points       gz.msgs.PointCloudPacked
+# 与自研桥（gz_sensor_bridge_node.cpp）里 Subscribe 的话题完全一致。
+#
+# ⚠️ 全部用**单向** `[`（GZ->ROS），理由和上面的 /scan 完全一样：
+#   这几个话题本来就是 gz 在发；如果桥也建 ROS->GZ 方向，桥会订阅自己的输出，
+#   形成自激回环（频率暴涨 + 数据重复）。
+SENSOR_BRIDGE_TOPICS = [
+    '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+    '/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
+    '/camera/depth_image@sensor_msgs/msg/Image[gz.msgs.Image',
+    '/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+    '/camera/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
+]
+
 # 时钟话题是本移植里唯一需要绕一下的地方。实测（gz sim 8.15.0）：
 #
 #   $ gz topic -i -t /clock                 -> No publishers on topic [/clock]
@@ -127,6 +159,13 @@ def generate_launch_description():
         description='true = 只起 Gazebo server（不开 GUI），适合远程/CI 验证')
     declare_verbose = DeclareLaunchArgument(
         'verbose', default_value='1', description='gz sim 日志级别 0-4')
+    declare_sensor_bridge = DeclareLaunchArgument(
+        'sensor_bridge', default_value='gz_sensor_bridge',
+        choices=['gz_sensor_bridge', 'parameter_bridge'],
+        description=('/imu 与 /camera/* 用哪套桥：'
+                     'gz_sensor_bridge = 本仓库自研节点（默认）；'
+                     'parameter_bridge = ros_gz_bridge 内置桥。'
+                     '两者不能同时用，切换后要重启仿真。'))
 
     robot_description = ParameterValue(
         Command(['xacro ', LaunchConfiguration('model')]), value_type=str)
@@ -174,32 +213,44 @@ def generate_launch_description():
 
         clock_topics = [t.format(world=world_name) for t in CLOCK_TOPIC_TEMPLATES]
 
-        # 时钟 + 雷达：交给 ros_gz_bridge（实测这几条正常）。
+        # /imu 与 /camera/* 走哪一套，由 sensor_bridge 参数决定。
+        # 两条分支**互斥**：选了内置桥就不再起自研节点（反之亦然），
+        # 否则同一话题会有两个发布者（实测过：频率翻倍、数据重复）。
+        sensor_bridge = LaunchConfiguration('sensor_bridge').perform(context).strip()
+        if sensor_bridge == 'gz_sensor_bridge':
+            bridge_topics = clock_topics + BRIDGE_TOPICS
+            # 两个 frame_id 参数和 urdf/fishbot/plugins/gz_sensor_plugin.xacro 里的
+            # <gz_frame_id> 保持一致；节点会优先用 gz 消息里带的 frame_id，
+            # 取不到才用这两个值。
+            extra_nodes = [Node(
+                package='gz_sensor_bridge',
+                executable='gz_sensor_bridge_node',
+                parameters=[{
+                    'imu_frame_id': 'imu_link',
+                    'camera_frame_id': 'camera_optical_link',
+                }],
+                output='screen',
+            )]
+        elif sensor_bridge == 'parameter_bridge':
+            bridge_topics = clock_topics + BRIDGE_TOPICS + SENSOR_BRIDGE_TOPICS
+            extra_nodes = []
+        else:
+            # DeclareLaunchArgument 的 choices 已经拦了一层，这里是兜底。
+            raise RuntimeError(
+                "sensor_bridge 只能是 'gz_sensor_bridge' 或 'parameter_bridge'，"
+                '实际收到：{!r}'.format(sensor_bridge))
+
+        # /clock 与 /scan、/scan/points：不论上面选哪一个，都交给 parameter_bridge。
         parameter_bridge_node = Node(
             package='ros_gz_bridge',
             executable='parameter_bridge',
-            arguments=clock_topics + BRIDGE_TOPICS,
+            arguments=bridge_topics,
             # gz 的 /world/<world>/clock 变成 ROS 的 /clock
             remappings=[('/world/{}/clock'.format(world_name), '/clock')],
             output='screen',
         )
 
-        # IMU + 相机：交给本仓库自己的节点（gz_sensor_bridge）。
-        # 它工作正常且已逐项验证；注意这**不是**「绕开上游 bug 的必要手段」——
-        # 那个 bug 现在复现不出来、结论已撤回，详见文件顶部那段说明。
-        # 两个 frame_id 参数和 urdf/fishbot/plugins/gz_sensor_plugin.xacro 里的
-        # <gz_frame_id> 保持一致；节点会优先用 gz 消息里带的 frame_id，取不到才用这两个值。
-        sensor_bridge_node = Node(
-            package='gz_sensor_bridge',
-            executable='gz_sensor_bridge_node',
-            parameters=[{
-                'imu_frame_id': 'imu_link',
-                'camera_frame_id': 'camera_optical_link',
-            }],
-            output='screen',
-        )
-
-        return [parameter_bridge_node, sensor_bridge_node]
+        return [parameter_bridge_node] + extra_nodes
 
     # gz_ros2_control 会把 controller_manager 跑在 Gazebo 进程内，
     # 所以这里用 spawner 去加载控制器，而不是自己起 ros2_control_node。
@@ -226,6 +277,7 @@ def generate_launch_description():
         declare_world,
         declare_headless,
         declare_verbose,
+        declare_sensor_bridge,
         robot_state_publisher_node,
         OpaqueFunction(function=start_gz_sim),
         OpaqueFunction(function=start_bridge),
