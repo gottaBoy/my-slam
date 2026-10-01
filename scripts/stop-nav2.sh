@@ -6,7 +6,7 @@
 #   有自匹配风险 —— 命令行里同时出现被匹配的字符串时，pkill 会把自己也杀掉。
 #   这里把 pkill 模式放进容器内的 tools/stop-nav2-patrol.sh，彻底规避。
 #
-# 用法：./stop-nav2.sh
+# 用法：./scripts/stop-nav2.sh
 set -euo pipefail
 
 . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/container-exec.sh"

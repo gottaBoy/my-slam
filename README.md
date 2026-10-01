@@ -66,10 +66,37 @@ src/
 `ros2 launch` / `ros2 run` / `get_package_share_directory` 都按包名解析，
 所以调整分组**不需要**改任何 launch 或脚本（`tools/` 下的脚本也已改成自动搜索）。
 
+### 仓库根目录
+
+```text
+my-slam/
+├─ compose.yaml / compose.nvidia.yaml   Compose 项目定义（`name: slam-ros2-dev` 写死）
+├─ Dockerfile / entrypoint.sh           镜像构建 与 容器入口脚本
+├─ ros-env.sh                           容器内非交互 shell 的环境（compose 的 BASH_ENV 指到它）
+├─ scripts/                             宿主机侧全部入口
+│    container-exec.sh                  公共库，被下面这些 wrapper source
+│    start.sh / stop.sh / shell.sh      容器生命周期
+│    docker_into.sh / docker_run.sh / docker_stop.sh
+│                                       早期 Apollo 风格命名，只是上面三个的薄别名
+│    sim.sh / stop-sim.sh / stop-nav2.sh   仿真与 Nav2 启停
+│    teleop.sh / rviz2.sh / rqt.sh / gazebo.sh   交互工具
+│    gpu-check.sh / check-models.py     环境与模型自检
+├─ tools/                               诊断与验证脚本（大多在容器内跑）
+├─ docs/                                模块清单、问题记录
+└─ src/                                 ROS 2 工作空间（22 个包）
+```
+
+> `scripts/` 与 `tools/` 的分工：`scripts/` 在**宿主机**跑，管容器与仿真生命周期；
+> `tools/` 大多在**容器内**跑，管排查与验证。
+>
+> `compose.yaml` 必须留在仓库根：`docker compose` 只读当前目录的配置文件，而所有
+> wrapper 都是 `cd` 到仓库根后再跑裸 `docker compose`（不传 `-f`）。原因见
+> [`docs/问题记录.md`](docs/问题记录.md) G-1。
+
 ## 完整启停流程（照着敲）
 
-这一节是日常最常用的全部命令，自成一块。**所有命令都在宿主机上执行**，脚本会自己
-`cd` 到所在目录，所以在哪个目录调用都可以（推荐就是 `my-slam/`）。
+这一节是日常最常用的全部命令，自成一块。**所有命令都在宿主机上执行**，脚本在 `my-slam/scripts/`
+下，会自己 `cd` 到仓库根（`compose.yaml` 所在处），所以在哪个目录调用都可以（推荐就是 `my-slam/`）。
 
 ```bash
 cd /home/my/workspace/slam/my-slam
@@ -78,50 +105,50 @@ cd /home/my/workspace/slam/my-slam
 ### 一、启动
 
 ```bash
-./start.sh          # 1. 启动容器（首次会先构建镜像，见「构建网络记录」）
-./sim.sh            # 2. 启动仿真（带 GUI）
+./scripts/start.sh          # 1. 启动容器（首次会先构建镜像，见「构建网络记录」）
+./scripts/sim.sh            # 2. 启动仿真（带 GUI）
 ```
 
-`./sim.sh` 的常用参数：
+`./scripts/sim.sh` 的常用参数：
 
 ```bash
-./sim.sh --headless                       # 不渲染，只起 Gazebo server（远程/低配/验证）
-./sim.sh --clean                          # 启动前先清掉上一次残留的仿真进程
-./sim.sh --gz-verbose 4                   # gz 日志级别 0-4
-./sim.sh --world /workspace/Dataset-of-Gazebo-Worlds-Models-and-Maps/worlds/empty_room/world.sdf
-./sim.sh -- headless:=false verbose:=2    # `--` 之后原样透传给 ros2 launch
+./scripts/sim.sh --headless                       # 不渲染，只起 Gazebo server（远程/低配/验证）
+./scripts/sim.sh --clean                          # 启动前先清掉上一次残留的仿真进程
+./scripts/sim.sh --gz-verbose 4                   # gz 日志级别 0-4
+./scripts/sim.sh --world /workspace/Dataset-of-Gazebo-Worlds-Models-and-Maps/worlds/empty_room/world.sdf
+./scripts/sim.sh -- headless:=false verbose:=2    # `--` 之后原样透传给 ros2 launch
 ```
 
 ### 二、怎么看结果
 
 ```bash
 # 另开一个终端：键盘遥控（w/s/a/d/k/q，不用回车）
-./teleop.sh
+./scripts/teleop.sh
 
 # 另开一个终端：图形化看
-./rviz2.sh     # Fixed Frame 选 base_footprint；Add -> By topic
+./scripts/rviz2.sh     # Fixed Frame 选 base_footprint；Add -> By topic
                #   /camera/image (Image)、/scan (LaserScan)、/imu (Imu)
-./rqt.sh       # 话题列表 / 节点关系 / TF 树等：Plugins 菜单里按需勾
+./scripts/rqt.sh       # 话题列表 / 节点关系 / TF 树等：Plugins 菜单里按需勾
 
 # 看「节点 ↔ 话题」关系图（三种方式任选）
-./rqt.sh       # ① 图形界面：Plugins → Introspection → Node Graph（最直观）
-./shell.sh -c 'python3 /workspace/my-slam/tools/show_graph.py'            # ② 文本
-./shell.sh -c 'python3 /workspace/my-slam/tools/show_graph.py --mermaid'  # ③ Mermaid，可粘进 Markdown
+./scripts/rqt.sh       # ① 图形界面：Plugins → Introspection → Node Graph（最直观）
+./scripts/shell.sh -c 'python3 /workspace/my-slam/tools/show_graph.py'            # ② 文本
+./scripts/shell.sh -c 'python3 /workspace/my-slam/tools/show_graph.py --mermaid'  # ③ Mermaid，可粘进 Markdown
 #   默认隐藏 /rosout、/parameter_events、controller_manager 内省话题等噪声；
 #   要看全部加 --all；节点刚起来时加 --wait 5。
 
 # 另开一个终端：命令行核对
-./shell.sh -c 'ros2 topic list'
-./shell.sh -c 'ros2 topic hz /scan'
-./shell.sh -c 'ros2 run tf2_ros tf2_echo base_footprint camera_optical_link'
+./scripts/shell.sh -c 'ros2 topic list'
+./scripts/shell.sh -c 'ros2 topic hz /scan'
+./scripts/shell.sh -c 'ros2 run tf2_ros tf2_echo base_footprint camera_optical_link'
 
-./shell.sh -c 'ros2 node list'                    # 有哪些节点
-./shell.sh -c 'ros2 node info /gz_sensor_bridge'  # 单个节点的发布/订阅/服务
-./shell.sh -c 'ros2 topic info /cmd_vel -v'       # 谁在发、谁在收、QoS 是什么
+./scripts/shell.sh -c 'ros2 node list'                    # 有哪些节点
+./scripts/shell.sh -c 'ros2 node info /gz_sensor_bridge'  # 单个节点的发布/订阅/服务
+./scripts/shell.sh -c 'ros2 topic info /cmd_vel -v'       # 谁在发、谁在收、QoS 是什么
 
 # 一键自检：检查图像/点云长度是否自洽、内参是否非零、IMU 重力是否合理
 # 退出码 0 = 全部通过
-./shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py'
+./scripts/shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py'
 ```
 
 启动正常时应该看到（2026-09-30 实测值，允许小幅波动）：
@@ -142,27 +169,27 @@ cd /home/my/workspace/slam/my-slam
 ### 三、停止
 
 ```bash
-# 停仿真：到跑 ./sim.sh 的那个终端按 Ctrl-C 即可。
-# 注意：./sim.sh --clean 的语义是「清理后接着启动」，不是停止，别拿它当停止用。
+# 停仿真：到跑 ./scripts/sim.sh 的那个终端按 Ctrl-C 即可。
+# 注意：./scripts/sim.sh --clean 的语义是「清理后接着启动」，不是停止，别拿它当停止用。
 
 # 如果那个终端已经关了、或者 Ctrl-C 后还有残留进程，用这条手动清：
 #   * 方括号是故意的 —— 防止 pkill 匹配到「正在执行清理的这条命令」自身而自杀
 #   * 末尾的 || true 也是必须的 —— 没有匹配到进程时 pkill 返回 1，不加会让整条命令报错退出
-./shell.sh -c 'pkill -9 -f "gz si[m]" || true; pkill -9 -f "ros2 launc[h]" || true'
+./scripts/shell.sh -c 'pkill -9 -f "gz si[m]" || true; pkill -9 -f "ros2 launc[h]" || true'
 
 # 停容器
-./stop.sh
+./scripts/stop.sh
 ```
 
 ### 四、出问题时先看这里
 
 | 现象 | 先做什么 |
 | --- | --- |
-| `failed to create drawable` | `./gpu-check.sh`，见「Gazebo 报 failed to create drawable 的排查」 |
-| 某个话题没数据 | `./shell.sh -c 'ros2 topic hz /话题名'`，对照上面表格 |
-| 有数据但内容看着不对 | `./shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py'` |
-| 容器里残留一堆进程 | 见「三、停止」里那条 `pkill`；要顺手重开一个仿真就用 `./sim.sh --clean` |
-| 改了 `gz_sensor_bridge` 的代码 | `./shell.sh -c 'cd /workspace/my-slam && colcon build --packages-select gz_sensor_bridge'` |
+| `failed to create drawable` | `./scripts/gpu-check.sh`，见「Gazebo 报 failed to create drawable 的排查」 |
+| 某个话题没数据 | `./scripts/shell.sh -c 'ros2 topic hz /话题名'`，对照上面表格 |
+| 有数据但内容看着不对 | `./scripts/shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py'` |
+| 容器里残留一堆进程 | 见「三、停止」里那条 `pkill`；要顺手重开一个仿真就用 `./scripts/sim.sh --clean` |
+| 改了 `gz_sensor_bridge` 的代码 | `./scripts/shell.sh -c 'cd /workspace/my-slam && colcon build --packages-select gz_sensor_bridge'` |
 | 想查「这个报错当时是怎么定位的」 | 看 `docs/问题记录.md`：按问题类型整理，每条统一写清**问题 / 现象 / 原因 / 解决方法** |
 | 想知道某个包是干什么的、怎么跑 | 看 `docs/模块清单.md` |
 
@@ -186,7 +213,7 @@ gz 的激光本来就发布在这两个话题上；如果桥再建一条 ROS→G
 漏加的后果实测过：旧实例不会被 `--clean` 清掉，ROS 侧同一个话题出现多个发布者，
 频率变成期望值的 2~3 倍（`/imu` 曾测出 300 Hz），数据也会重复。
 
-检查方法：`./shell.sh -c 'ros2 topic info /imu -v | grep "Publisher count"'` 应该是 **1**。
+检查方法：`./scripts/shell.sh -c 'ros2 topic info /imu -v | grep "Publisher count"'` 应该是 **1**。
 
 ## 代码移植与适配记录
 
@@ -209,7 +236,7 @@ gz 的激光本来就发布在这两个话题上；如果桥再建一条 ROS→G
 
 **原则**：
 1. **绝不整包覆盖已有的包** —— `mybot_description` 是本仓库的超集（含 Gazebo Sim 版），
-   被覆盖会把 gz 版全弄丢，`./sim.sh` 直接报废。
+   被覆盖会把 gz 版全弄丢，`./scripts/sim.sh` 直接报废。
 2. **本仓库的包统一用 `mybot_*` 前缀**，一眼能看出哪些是自己维护的。
 
 ### 导航与巡检应用：搬了什么
@@ -306,19 +333,19 @@ docking_server ─────────────────────�
 
 ```bash
 # 终端 1：仿真
-cd /home/my/workspace/slam/my-slam && ./sim.sh --headless
+cd /home/my/workspace/slam/my-slam && ./scripts/sim.sh --headless
 
 # 终端 2：Nav2（无头；要看 rviz 去掉 rviz:=false）
-./shell.sh -c 'ros2 launch mybot_navigation2 navigation2.launch.py rviz:=false'
+./scripts/shell.sh -c 'ros2 launch mybot_navigation2 navigation2.launch.py rviz:=false'
 
 # 终端 3：巡逻（拍照 + 语音服务）
-./shell.sh -c 'ros2 launch autopatrol_robot autopatrol.launch.py'
+./scripts/shell.sh -c 'ros2 launch autopatrol_robot autopatrol.launch.py'
 
 # 停止（只停 Nav2 + 巡逻，保留仿真）
-./stop-nav2.sh
+./scripts/stop-nav2.sh
 ```
 
-> `./stop-nav2.sh` 存在的原因见「踩坑记录」：直接写 `pkill -f "navigation2.launch.py"`
+> `./scripts/stop-nav2.sh` 存在的原因见「踩坑记录」：直接写 `pkill -f "navigation2.launch.py"`
 > 有自杀风险。该脚本把 pkill 模式放进容器内的 `tools/stop-nav2-patrol.sh` 里规避。
 
 **rviz 用的是本仓库裁剪过的配置**，不是 `nav2_bringup` 自带那份：
@@ -341,7 +368,7 @@ Global Planner / Controller / MarkerArray）原样保留。
 `nav2_bringup` 升级后可以重新生成：
 
 ```bash
-./shell.sh -c 'python3 /workspace/my-slam/tools/gen_nav2_rviz.py'
+./scripts/shell.sh -c 'python3 /workspace/my-slam/tools/gen_nav2_rviz.py'
 ```
 
 > **注意**：这个容器里 rviz2 **偶尔会在启动瞬间段错误退出**（`exit code -11`）。
@@ -380,7 +407,7 @@ Global Planner / Controller / MarkerArray）原样保留。
 这些例子都要 `use_sim_time`，例如：
 
 ```bash
-./shell.sh -c 'ros2 run mybot_application nav_to_pose --ros-args -p use_sim_time:=true'
+./scripts/shell.sh -c 'ros2 run mybot_application nav_to_pose --ros-args -p use_sim_time:=true'
 ```
 
 **入口注册**：`mybot_application/setup.py` 原本只注册了 `init_robot_pose`，
@@ -539,14 +566,14 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 
 | 检查 | 期望值 | 命令 |
 | --- | --- | --- |
-| 传感器内容自洽 | `exit=0` | `./shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py; echo exit=$?'` |
+| 传感器内容自洽 | `exit=0` | `./scripts/shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py; echo exit=$?'` |
 | 无自激桥 | `0` | `grep -c "Creating ROS->GZ Bridge" 启动日志` |
-| 各话题发布者唯一 | 都是 `1` | `./shell.sh -c 'ros2 topic info /scan \| grep "Publisher count"'` |
-| `/scan` 频率 | ~10 Hz | `./shell.sh -c 'timeout 15 ros2 topic hz /scan'` |
-| `/imu` 频率 | ~100 Hz | `./shell.sh -c 'timeout 8 ros2 topic hz /imu'` |
-| **传感器话题健康（一条命令覆盖上面三项）** | `exit=0` | `./shell.sh -c 'bash /workspace/my-slam/tools/check_topic_health.sh; echo exit=$?'` |
-| 遥控仍可用 | `/odom` 有变化 | `./teleop.sh --forward`，然后看 `/odom` |
-| `/cmd_vel` 类型 | `TwistStamped` | `./shell.sh -c 'ros2 topic info /cmd_vel'` |
+| 各话题发布者唯一 | 都是 `1` | `./scripts/shell.sh -c 'ros2 topic info /scan \| grep "Publisher count"'` |
+| `/scan` 频率 | ~10 Hz | `./scripts/shell.sh -c 'timeout 15 ros2 topic hz /scan'` |
+| `/imu` 频率 | ~100 Hz | `./scripts/shell.sh -c 'timeout 8 ros2 topic hz /imu'` |
+| **传感器话题健康（一条命令覆盖上面三项）** | `exit=0` | `./scripts/shell.sh -c 'bash /workspace/my-slam/tools/check_topic_health.sh; echo exit=$?'` |
+| 遥控仍可用 | `/odom` 有变化 | `./scripts/teleop.sh --forward`，然后看 `/odom` |
+| `/cmd_vel` 类型 | `TwistStamped` | `./scripts/shell.sh -c 'ros2 topic info /cmd_vel'` |
 
 ### 踩坑记录
 
@@ -657,9 +684,9 @@ PGM 的**首行对应 y 最大值**，所以 `row = h - 1 - int((y - oy)/res)`�
 
 ```bash
 # 造一份临时参数：把两个 plugin 行换成自研插件并补上它们的参数
-./shell.sh -c 'python3 /workspace/my-slam/tools/make_custom_plugin_params.py /tmp/nav2_custom_test.yaml'
+./scripts/shell.sh -c 'python3 /workspace/my-slam/tools/make_custom_plugin_params.py /tmp/nav2_custom_test.yaml'
 # 用它启动
-./shell.sh -c 'ros2 launch mybot_navigation2 navigation2.launch.py rviz:=false params_file:=/tmp/nav2_custom_test.yaml'
+./scripts/shell.sh -c 'ros2 launch mybot_navigation2 navigation2.launch.py rviz:=false params_file:=/tmp/nav2_custom_test.yaml'
 ```
 
 ### bringup（真机启动 + 仿真版一键启动）
@@ -727,7 +754,7 @@ ros2 launch mybot_bringup bringup_sim.launch.py initial_pose:=false
 
 #### 顺带补的运维脚本
 
-`./stop-sim.sh`（容器内 `tools/stop-sim.sh`）——安全停掉仿真。之前停仿真只能靠
+`./scripts/stop-sim.sh`（容器内 `tools/stop-sim.sh`）——安全停掉仿真。之前停仿真只能靠
 跑 `sim.sh` 的那个终端 Ctrl-C，终端关了就没辙。同样把 pkill 模式放在脚本文件里，
 避免自匹配。
 
@@ -782,9 +809,9 @@ warning: ... create_service(...) is deprecated:
 
 ```bash
 # 例：跑生命周期演示并观察状态切换
-./shell.sh -c 'ros2 run learn_lifecyclenode_py learn_lifecyclenode'   # 终端 1
-./shell.sh -c 'ros2 lifecycle get /lifecyclenode'                     # 终端 2
-./shell.sh -c 'ros2 lifecycle set /lifecyclenode configure'
+./scripts/shell.sh -c 'ros2 run learn_lifecyclenode_py learn_lifecyclenode'   # 终端 1
+./scripts/shell.sh -c 'ros2 lifecycle get /lifecyclenode'                     # 终端 2
+./scripts/shell.sh -c 'ros2 lifecycle set /lifecyclenode configure'
 ```
 
 > 这些 Python 演示被 `timeout`/Ctrl-C 杀掉时会打印
@@ -799,7 +826,7 @@ warning: ... create_service(...) is deprecated:
 
 ```bash
 cd /home/my/workspace/slam/my-slam
-./start.sh
+./scripts/start.sh
 ```
 
 首次启动会拉取 `ros:jazzy-ros-base` 并安装桌面、Gazebo、SLAM、Nav2 等依赖，再构建
@@ -833,50 +860,50 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 
 | 命令 | 作用 |
 | --- | --- |
-| `./start.sh` / `./stop.sh` | 启动 / 停止容器 |
-| `./shell.sh` | 交互式进入容器（推荐用这个） |
-| `./sim.sh` | 一键启动 mybot 的 Gazebo Sim 仿真 |
-| `./teleop.sh` | 键盘遥控 mybot |
-| `./rviz2.sh` / `./rqt.sh` | 图形化调试 |
-| `./gazebo.sh` | 只开一个空的 Gazebo GUI（手动摆模型用） |
-| `./gpu-check.sh` | 排查 GPU / 渲染问题（`failed to create drawable`） |
+| `./scripts/start.sh` / `./scripts/stop.sh` | 启动 / 停止容器 |
+| `./scripts/shell.sh` | 交互式进入容器（推荐用这个） |
+| `./scripts/sim.sh` | 一键启动 mybot 的 Gazebo Sim 仿真 |
+| `./scripts/teleop.sh` | 键盘遥控 mybot |
+| `./scripts/rviz2.sh` / `./scripts/rqt.sh` | 图形化调试 |
+| `./scripts/gazebo.sh` | 只开一个空的 Gazebo GUI（手动摆模型用） |
+| `./scripts/gpu-check.sh` | 排查 GPU / 渲染问题（`failed to create drawable`） |
 
 非交互式执行单条命令（不占终端，脚本里也能用）：
 
 ```bash
-./shell.sh -c 'ros2 topic list'
-./shell.sh -c 'ros2 pkg prefix mybot_description'
+./scripts/shell.sh -c 'ros2 topic list'
+./scripts/shell.sh -c 'ros2 pkg prefix mybot_description'
 ```
 
-`./docker_run.sh`、`./docker_into.sh`、`./docker_stop.sh` 是早期的 Apollo 风格命名，现在只是
+`./scripts/docker_run.sh`、`./scripts/docker_into.sh`、`./scripts/docker_stop.sh` 是早期的 Apollo 风格命名，现在只是
 `start.sh` / `shell.sh` / `stop.sh` 的薄别名（`docker_into.sh` 原先和 `shell.sh` 内容完全重复）。
 这些脚本只操作 Compose 项目 `slam-ros2-dev`，不会碰 OOMWOO 容器。
 
-公共逻辑集中在 `container-exec.sh`（被上面这些 wrapper source），它负责三件事：
-切到脚本所在目录、stdin 不是终端时自动加 `-T`、优先使用 bind mount 进来的 `entrypoint.sh`
+公共逻辑集中在 `scripts/container-exec.sh`（被上面这些 wrapper source），它负责三件事：
+切到仓库根（`compose.yaml` 所在处）、stdin 不是终端时自动加 `-T`、优先使用 bind mount 进来的 `entrypoint.sh`
 （所以改入口脚本立即生效，不用重建镜像）。
 
 例如启动一个 Gazebo 世界：
 
 ```bash
-./gazebo.sh /workspace/Dataset-of-Gazebo-Worlds-Models-and-Maps/worlds/empty_room/world.sdf
+./scripts/gazebo.sh /workspace/Dataset-of-Gazebo-Worlds-Models-and-Maps/worlds/empty_room/world.sdf
 ```
 
 ### 两个高频踩坑
 
 **1. 不要在父目录执行 `docker compose`。**
-`compose.yaml` 在 `my-slam/` 下，在 `/home/my/workspace/slam` 里执行会直接失败：
+`compose.yaml` 在 `my-slam/` 根下（`scripts/` 的上一级），在 `/home/my/workspace/slam` 里执行会直接失败：
 
 ```text
 no configuration file provided: not found
 ```
 
-所有 wrapper 都会自己 `cd` 到脚本所在目录，所以从任何地方调用 `./sim.sh`、`./shell.sh` 都安全。
+所有 wrapper 都会自己 `cd` 到 `my-slam/`（`compose.yaml` 所在处），所以从任何地方调用 `./scripts/sim.sh`、`./scripts/shell.sh` 都安全。
 
 **2. 交互式 shell 里的 overlay（已修）。**
 镜像里烘焙的入口脚本原来写死 `source /workspace/install/setup.bash`，而真正的 overlay 在
 `/workspace/my-slam/install/setup.bash` —— 前者从来不存在。后果是：
-非交互式 bash 因为有 `BASH_ENV=ros-env.sh` 兜底，看起来正常；但交互式 shell（`./shell.sh`）里
+非交互式 bash 因为有 `BASH_ENV=ros-env.sh` 兜底，看起来正常；但交互式 shell（`./scripts/shell.sh`）里
 
 ```bash
 ros2 pkg prefix mybot_description     # -> Package not found
@@ -886,7 +913,7 @@ ros2 pkg prefix mybot_description     # -> Package not found
 进容器即可直接用，新增的包 `colcon build` 完立即生效。想确认实际 source 了哪些：
 
 ```bash
-./shell.sh -c 'echo "$SLAM_OVERLAY_SETUP"'
+./scripts/shell.sh -c 'echo "$SLAM_OVERLAY_SETUP"'
 ```
 
 ## Gazebo 报 `failed to create drawable` 的排查
@@ -896,7 +923,7 @@ ros2 pkg prefix mybot_description     # -> Package not found
 （没有 `/dev/nvidia*`、没有 `/dev/dri`、没有 NVIDIA 用户态 GL 库），只剩 llvmpipe 软件渲染，
 而 llvmpipe 在 X11 下创建 GLX drawable 失败。
 
-用 `./gpu-check.sh` 可以一次性把宿主机和容器内的状态都打出来。
+用 `./scripts/gpu-check.sh` 可以一次性把宿主机和容器内的状态都打出来。
 
 ### 本机实测结论（2026-09-30）
 
@@ -914,7 +941,7 @@ Docker        runtimes 里没有 nvidia，但存在 CDI spec /var/run/cdi/nvidia
 本机已装 nvidia-container-toolkit 且生成了 CDI spec，直接用 CDI，不需要重启 Docker：
 
 ```bash
-./stop.sh && ./start.sh      # start.sh 检测到 CDI 后自动叠加 compose.nvidia.yaml
+./scripts/stop.sh && ./scripts/start.sh      # start.sh 检测到 CDI 后自动叠加 compose.nvidia.yaml
 ```
 
 或者显式指定：
@@ -952,13 +979,13 @@ Gazebo 模型默认下载在容器内的 `/home/nvidia/.gz`，容器一旦重建
 ### 只验证模型加载，不启动 GUI
 
 ```bash
-./gazebo.sh -s -r /workspace/.../model.sdf   # -s: 只启动 server
+./scripts/gazebo.sh -s -r /workspace/.../model.sdf   # -s: 只启动 server
 ```
 
 ### 其它提示
 
 * 日志里 `Can not find the XML attribute 'version' in sdf XML tag` 只是警告，不影响加载。
-* 只想验证模型能否加载时，先 `./gazebo.sh -s -r <world.sdf>`（`-s` 只起 server，不起 GUI），
+* 只想验证模型能否加载时，先 `./scripts/gazebo.sh -s -r <world.sdf>`（`-s` 只起 server，不起 GUI），
   可以完全绕过 drawable 问题。
 
 ## mybot 的 Gazebo Sim 仿真（my-slam 新增，不改教材原文件）
@@ -1061,8 +1088,8 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/TwistStamped \
 **现状：两套实现都保留，用 launch 参数二选一**（2026-10-01 实测两者等价）：
 
 ```bash
-./sim.sh --clean --headless -- sensor_bridge:=parameter_bridge   # 用内置桥
-./sim.sh --clean --headless                                       # 默认：用自研桥
+./scripts/sim.sh --clean --headless -- sensor_bridge:=parameter_bridge   # 用内置桥
+./scripts/sim.sh --clean --headless                                       # 默认：用自研桥
 ```
 
 只影响 `/imu` 与 `/camera/*` 这 5 个话题；`/scan`、`/scan/points`、`/clock`
@@ -1203,25 +1230,25 @@ $ ros2 topic info /cmd_vel -v   -> Publisher count: 1  (teleop_twist_keyboard)
 $ ros2 topic hz /cmd_vel        -> 完全没有数据
 ```
 
-所以本包自带了一个不依赖 TTY 的版本，并配了宿主机入口 `./teleop.sh`
+所以本包自带了一个不依赖 TTY 的版本，并配了宿主机入口 `./scripts/teleop.sh`
 （和 `gazebo.sh`/`shell.sh` 一样，在**宿主机**执行，容器里什么都不用装）：
 
 ```bash
 # 交互式终端：单键模式（w/s/a/d/k/q 都不用回车）
-./teleop.sh
+./scripts/teleop.sh
 
 # 强制行模式（按完回车）
-./teleop.sh --line
+./scripts/teleop.sh --line
 
 # 不读键盘，直接前进（验证链路用，Ctrl-C 停）
-./teleop.sh --forward
+./scripts/teleop.sh --forward
 ```
 
 ⚠️ **注意路径属于哪一侧**（这是个很容易踩的坑）：
 
 | 命令 | 在哪执行 | 说明 |
 | --- | --- | --- |
-| `./teleop.sh` | **宿主机** | 推荐，内部自动 `docker compose exec` 进容器 |
+| `./scripts/teleop.sh` | **宿主机** | 推荐，内部自动 `docker compose exec` 进容器 |
 | `python3 /workspace/my-slam/.../mybot_teleop.py` | **容器内** | `/workspace/...` 只在容器里存在 |
 
 在宿主机上直接跑 `python3 /workspace/my-slam/...` 会得到
@@ -1260,10 +1287,10 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p stamped:=true
 
 ```bash
 # 终端 1
-./sim.sh
+./scripts/sim.sh
 
 # 终端 2
-./teleop.sh
+./scripts/teleop.sh
 ```
 
 注意 `sudo` 装在容器里，容器重建后会丢；要持久化得加进 Dockerfile 的 apt 层，
@@ -1281,7 +1308,7 @@ ros2 topic list             # 看 ROS 侧是否桥接成功
 不要在 `/workspace` 根目录直接执行 `colcon build`。进入具体 ROS 2 工作空间后再构建，例如：
 
 ```bash
-./shell.sh
+./scripts/shell.sh
 cd /workspace/ros2bookcode/chapt7/chapt7_ws
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
@@ -1501,7 +1528,7 @@ Gazebo Sim 8（`gz sim`，Harmonic）解析 `model://<name>` 时，只会去搜 
 在容器里执行：
 
 ```bash
-./shell.sh
+./scripts/shell.sh
 echo "$GZ_SIM_RESOURCE_PATH"
 ls "$HOME/.gz/models" | head          # 直接子目录就是各个模型
 find "$HOME/.gz/models" -maxdepth 2 -name model.config | wc -l   # 262
@@ -1518,7 +1545,7 @@ gz sim --versions                     # 8.15.0
 mkdir -p ~/.gz/models
 cp -r /workspace/gazebo_models/* ~/.gz/models/   # 或用 Fuel 在线下载
 export QT_QPA_PLATFORM=xcb            # compose 里已设，交互式调试时保险
-./gazebo.sh                           # 从宿主机启动
+./scripts/gazebo.sh                           # 从宿主机启动
 ```
 
 模型缓存已经 bind mount 到宿主机的 `my-slam/gz-cache/`，容器重建不会丢。
@@ -1534,7 +1561,7 @@ export QT_QPA_PLATFORM=xcb            # compose 里已设，交互式调试时�
 
 ```bash
 # 启动仿真（推荐：宿主机一键入口）
-./sim.sh
+./scripts/sim.sh
 
 # 等价的手工写法（容器内）
 ros2 launch mybot_description gazebo_sim_gz.launch.py
@@ -1543,10 +1570,10 @@ ros2 launch mybot_description gazebo_sim_gz.launch.py
 ros2 launch mybot_description display_robot.launch.py
 
 # 启动参数
-./sim.sh --headless              # 只起 server，不渲染
-./sim.sh --gz-verbose 4
-./sim.sh --world /workspace/xxx/world.sdf
-./sim.sh --clean                 # 启动前清掉上一次残留的仿真进程
+./scripts/sim.sh --headless              # 只起 server，不渲染
+./scripts/sim.sh --gz-verbose 4
+./scripts/sim.sh --world /workspace/xxx/world.sdf
+./scripts/sim.sh --clean                 # 启动前清掉上一次残留的仿真进程
 ```
 
 **headless 模式是完整可用的**（2026-09-30 实测，无 GUI、纯 server）：
@@ -1564,9 +1591,9 @@ ros2 launch mybot_description display_robot.launch.py
 即相机（离屏渲染）在 headless 下也正常，两个 controller 都 `active`。
 适合在没接显示器、或 x11 socket 不可用时验证链路。
 
-`./sim.sh` 每次启动都会检查容器里有没有上一次残留的仿真进程：终端被关掉 / 被 kill 时，
+`./scripts/sim.sh` 每次启动都会检查容器里有没有上一次残留的仿真进程：终端被关掉 / 被 kill 时，
 容器内的 `ros2 launch` 和 `gz sim` 不会跟着退出，而两者共用 `GZ_PARTITION`，
 互相抢话题的现象非常难查。有残留时会警告，`--clean` 则直接清掉。
 
 详见上文「mybot 的 Gazebo Sim 仿真」一节。宿主机上对应入口：
-`./gazebo.sh` 起容器、`./shell.sh` 进容器、`./teleop.sh` 键盘遥控。
+`./scripts/gazebo.sh` 起容器、`./scripts/shell.sh` 进容器、`./scripts/teleop.sh` 键盘遥控。

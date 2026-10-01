@@ -2,12 +2,12 @@
 # 从宿主机一键启动 mybot 的 Gazebo Sim 仿真（含控制器 + 传感器 + ROS 桥接）。
 #
 # 用法：
-#   ./sim.sh                       # 开 GUI（默认）
-#   ./sim.sh --headless            # 只起 Gazebo server，不渲染（远程/CI 验证用）
-#   ./sim.sh --gz-verbose 4        # gz 日志级别 0-4
-#   ./sim.sh --world /容器内/world.sdf
-#   ./sim.sh --clean               # 启动前先清掉上一次残留的仿真进程
-#   ./sim.sh -- headless:=true     # 原样透传给 ros2 launch
+#   ./scripts/sim.sh                       # 开 GUI（默认）
+#   ./scripts/sim.sh --headless            # 只起 Gazebo server，不渲染（远程/CI 验证用）
+#   ./scripts/sim.sh --gz-verbose 4        # gz 日志级别 0-4
+#   ./scripts/sim.sh --world /容器内/world.sdf
+#   ./scripts/sim.sh --clean               # 启动前先清掉上一次残留的仿真进程
+#   ./scripts/sim.sh -- headless:=true     # 原样透传给 ros2 launch
 #
 # 它做的事等价于进容器执行（overlay 由 entrypoint.sh 自动 source）：
 #   ros2 launch mybot_description gazebo_sim_gz.launch.py <参数...>
@@ -23,7 +23,7 @@ LAUNCH_FILE="${SIM_LAUNCH_FILE:-gazebo_sim_gz.launch.py}"
 
 usage() {
     cat <<'EOF'
-用法: ./sim.sh [选项] [-- 额外的 ros2 launch 参数...]
+用法: ./scripts/sim.sh [选项] [-- 额外的 ros2 launch 参数...]
 
   (无选项)              开 GUI 启动仿真
   --headless            只起 Gazebo server（-s -r），不渲染
@@ -37,8 +37,8 @@ usage() {
   SIM_PKG / SIM_LAUNCH_FILE   换包或换 launch 文件
 
 启动后（另开两个终端）:
-  ./teleop.sh                   键盘遥控
-  ./shell.sh -c 'ros2 topic list'
+  ./scripts/teleop.sh                   键盘遥控
+  ./scripts/shell.sh -c 'ros2 topic list'
 EOF
 }
 
@@ -80,7 +80,7 @@ case " ${launch_args[*]:-} " in
         x11_socket="/tmp/.X11-unix/X${display_number%%.*}"
         if [ ! -S "${x11_socket}" ]; then
             echo "提示：宿主机找不到 X11 socket ${x11_socket}（DISPLAY=${DISPLAY:-未设置}），" >&2
-            echo "      开 GUI 会失败。可以改用： ./sim.sh --headless" >&2
+            echo "      开 GUI 会失败。可以改用： ./scripts/sim.sh --headless" >&2
         fi ;;
 esac
 
@@ -129,7 +129,7 @@ if [ "${running}" != "0" ]; then
         {
             echo "警告：容器里还有 ${running} 个上一次的仿真进程没退出。"
             echo "      两个仿真共用 GZ_PARTITION，会互相抢话题/抢世界，现象很难查。"
-            echo "      建议改用： ./sim.sh --clean ...（或先在旧终端里 Ctrl-C）"
+            echo "      建议改用： ./scripts/sim.sh --clean ...（或先在旧终端里 Ctrl-C）"
             echo "      现在仍然继续启动。"
         } >&2
     fi

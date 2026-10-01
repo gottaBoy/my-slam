@@ -7,9 +7,9 @@
 # 并返回退出码 2。这个包装脚本帮你 cd 到正确位置并在容器里运行。
 #
 # 用法：
-#   ./teleop.sh                 # 交互式终端：单键模式（w/s/a/d/k/q 不用回车）
-#   ./teleop.sh --line          # 强制行模式（按完回车）
-#   ./teleop.sh --forward       # 不读键盘，直接前进，Ctrl-C 停
+#   ./scripts/teleop.sh                 # 交互式终端：单键模式（w/s/a/d/k/q 不用回车）
+#   ./scripts/teleop.sh --line          # 强制行模式（按完回车）
+#   ./scripts/teleop.sh --forward       # 不读键盘，直接前进，Ctrl-C 停
 #
 # 说明：本脚本只在容器内运行，宿主机上不需要装任何 ROS。
 #       交互式运行时 docker compose exec 会分配 TTY，脚本自动进入单键模式；

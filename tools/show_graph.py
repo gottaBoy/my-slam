@@ -2,7 +2,7 @@
 """打印 ROS 2 的计算图（节点 ↔ 话题 的连接关系），不需要图形界面。
 
 三条查看途径，按需要选：
-  1. 图形界面最直观：./rqt.sh → Plugins → Introspection → Node Graph
+  1. 图形界面最直观：./scripts/rqt.sh → Plugins → Introspection → Node Graph
   2. 命令行逐项查：ros2 node list / ros2 node info <节点> / ros2 topic info <话题> -v
   3. 本脚本：一次性把整张图打出来，headless 也能用；还能输出 Mermaid 直接粘进文档
 

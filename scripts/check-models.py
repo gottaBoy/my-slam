@@ -2,8 +2,8 @@
 """校验 Gazebo 模型目录（classic / Sim 通用）。
 
 用法:
-    ./check-models.py [模型根目录 ...]        # 默认 gz-cache/models
-    ./check-models.py --fix-version <dir>     # 给缺失的 <sdf> 补上 version 属性
+    ./scripts/check-models.py [模型根目录 ...]        # 默认 gz-cache/models
+    ./scripts/check-models.py --fix-version <dir>     # 给缺失的 <sdf> 补上 version 属性
 
 检查项:
   1. model.config 能否解析、是否有 <name> / <sdf>
@@ -349,7 +349,8 @@ def main() -> int:
     parser.add_argument("--fix-xml", action="store_true", help="修复 tinyxml2 会拒绝的 XML（声明位置、未加引号的属性）")
     args = parser.parse_args()
 
-    default_root = Path(__file__).resolve().parent / "gz-cache" / "models"
+    # 本脚本在 <仓库根>/scripts/，gz-cache 在仓库根。
+    default_root = Path(__file__).resolve().parent.parent / "gz-cache" / "models"
     roots = [Path(r).resolve() for r in args.roots] or [default_root]
 
     total_errors = 0

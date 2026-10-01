@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # 排查 Gazebo / RViz2 报 "failed to create drawable" 的辅助脚本。
-# 在宿主机执行：./gpu-check.sh
+# 在宿主机执行：./scripts/gpu-check.sh
 set -uo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# compose.yaml 在仓库根，本脚本在 <仓库根>/scripts/。
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_DIR"
 
 CONTAINER_NAME="${CONTAINER_NAME:-slam-ros2-dev}"
 DISPLAY="${DISPLAY:-:1}"
@@ -49,7 +50,7 @@ done
 echo
 echo "== Inside container (${CONTAINER_NAME}) =="
 if ! docker compose ps --status running --services 2>/dev/null | grep -qx "$CONTAINER_NAME"; then
-    bad "container not running - start it with ./start.sh first"
+    bad "container not running - start it with ./scripts/start.sh first"
     exit 1
 fi
 

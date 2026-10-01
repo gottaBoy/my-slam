@@ -12,7 +12,7 @@
 # 用法（容器内，仿真已在跑）:
 #   bash tools/check_topic_health.sh
 # 宿主机:
-#   ./shell.sh -c 'bash /workspace/my-slam/tools/check_topic_health.sh'
+#   ./scripts/shell.sh -c 'bash /workspace/my-slam/tools/check_topic_health.sh'
 
 source /opt/ros/jazzy/setup.bash >/dev/null 2>&1
 source /workspace/my-slam/install/setup.bash >/dev/null 2>&1

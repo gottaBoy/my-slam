@@ -6,7 +6,7 @@
 #   /workspace/my-slam/install/setup.bash —— 前者从来就不存在。后果很隐蔽：
 #     * 非交互 shell（bash -c）还有 BASH_ENV=/workspace/my-slam/ros-env.sh 兜底，
 #       看起来一切正常；
-#     * 交互式 shell（./shell.sh 进来的那种）只读 ~/.bashrc，于是
+#     * 交互式 shell（./scripts/shell.sh 进来的那种）只读 ~/.bashrc，于是
 #         ros2 pkg prefix mybot_description   ->  Package not found
 #       必须每次手打 source /workspace/my-slam/install/setup.bash 才能用。
 #   改成自动发现之后，src/ 下新加包、colcon build 完立即生效，不用改这个文件。

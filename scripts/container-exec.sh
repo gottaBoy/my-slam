@@ -6,9 +6,10 @@
 # 它集中解决三个反复踩到的坑：
 #
 # 1) 工作目录
-#    在父目录 /home/my/workspace/slam 里执行 docker compose 会直接报
+#    compose.yaml 在仓库根，而本文件在根目录下的 scripts/。docker compose 默认
+#    只读当前目录的 compose.yaml，在别处执行会直接报
 #      no configuration file provided: not found
-#    （那里没有 compose.yaml）。所以这里永远先 cd 到本脚本所在目录。
+#    所以这里永远先 cd 到上一级（仓库根）。
 #
 # 2) 伪终端
 #    docker compose exec 默认申请 TTY。当 stdin 不是终端时（脚本、管道、CI），
@@ -21,7 +22,7 @@
 #    /workspace/my-slam/entrypoint.sh 是「活的」：改完立即生效，不用重建镜像。
 #    所以优先用挂载进来那份，只有它不在时才退回镜像里那份。
 
-SLAM_PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SLAM_PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${SLAM_PROJECT_DIR}"
 
 export HOST_UID="${HOST_UID:-$(id -u)}"
@@ -38,7 +39,7 @@ cexec_require_running() {
             | grep -qx "${SERVICE_NAME}"; then
         {
             echo "容器 ${CONTAINER_NAME} 没有在运行。"
-            echo "先执行： cd ${SLAM_PROJECT_DIR} && ./start.sh"
+            echo "先执行： cd ${SLAM_PROJECT_DIR} && ./scripts/start.sh"
         } >&2
         exit 1
     fi

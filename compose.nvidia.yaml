@@ -5,7 +5,7 @@
 #      docker compose -f compose.yaml -f compose.nvidia.yaml up -d --build
 #   B. 在 my-slam/.env 里写：
 #      COMPOSE_FILE=compose.yaml:compose.nvidia.yaml
-#      （之后 ./start.sh、./stop.sh 会自动带上这个覆盖文件）
+#      （之后 ./scripts/start.sh、./scripts/stop.sh 会自动带上这个覆盖文件）
 #
 # 为什么用 CDI 而不是 `runtime: nvidia` / `--gpus all`：
 #   * 本机 (aarch64 GB10) 已安装 nvidia-container-toolkit，CDI spec 位于
@@ -16,7 +16,7 @@
 #
 # 前提条件（宿主机）：
 #   1. /var/run/cdi/nvidia.yaml 存在（`nvidia-ctk cdi generate` 生成）
-#   2. 用 ./gpu-check.sh 验证
+#   2. 用 ./scripts/gpu-check.sh 验证
 # 若宿主机没有 GPU 直通能力，请不要使用本文件，
 # 保持 LIBGL_ALWAYS_SOFTWARE=1 走 llvmpipe 软件渲染。
 services:

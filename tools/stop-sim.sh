@@ -6,7 +6,7 @@
 # 命令行里的其它文本自匹配，把执行清理的 shell 自己杀掉。
 #
 # 用法（容器内）：bash /workspace/my-slam/tools/stop-sim.sh
-# 用法（宿主机）：./stop-sim.sh
+# 用法（宿主机）：./scripts/stop-sim.sh
 
 set -uo pipefail
 

@@ -6,7 +6,7 @@
 #   ros2 pkg prefix mybot_description      # 不再报 Package not found
 # 想看内部到底 source 了哪几个 overlay：echo "$SLAM_OVERLAY_SETUP"
 #
-# 非交互用法（不占终端）：./shell.sh -c 'ros2 topic list'
+# 非交互用法（不占终端）：./scripts/shell.sh -c 'ros2 topic list'
 set -euo pipefail
 
 . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/container-exec.sh"

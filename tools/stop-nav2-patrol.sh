@@ -9,7 +9,7 @@
 #   把模式放进脚本文件后，杀进程的那条命令行本身只包含脚本路径，不可能自匹配。
 #
 # 用法（容器内）：bash /workspace/my-slam/tools/stop-nav2-patrol.sh
-# 用法（宿主机）：./stop-nav2.sh
+# 用法（宿主机）：./scripts/stop-nav2.sh
 
 set -uo pipefail
 

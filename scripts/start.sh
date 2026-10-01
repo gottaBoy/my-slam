@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# compose.yaml 在仓库根，本脚本在 <仓库根>/scripts/。
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKSPACE_DIR="$(cd -- "${PROJECT_DIR}/.." && pwd)"
+cd "$PROJECT_DIR"
 
 export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
@@ -34,7 +36,7 @@ fi
 # 判定依据：CDI spec 存在，或 Docker 注册了 nvidia runtime。
 # 显式设置了 COMPOSE_FILE 的话以用户配置为准。
 compose_files=()
-if [[ -z "${COMPOSE_FILE:-}" ]] && [[ -f "${SCRIPT_DIR}/compose.nvidia.yaml" ]]; then
+if [[ -z "${COMPOSE_FILE:-}" ]] && [[ -f "${PROJECT_DIR}/compose.nvidia.yaml" ]]; then
     if [[ -e /var/run/cdi/nvidia.yaml ]] \
         || docker info --format '{{range $k, $v := .Runtimes}}{{$k}} {{end}}' 2>/dev/null \
             | grep -qw nvidia; then
@@ -47,11 +49,11 @@ fi
 docker compose "${compose_files[@]}" up -d --build
 
 echo "Started ${CONTAINER_NAME}"
-echo "Workspace: ${SCRIPT_DIR}/.. -> /workspace"
+echo "Workspace: ${WORKSPACE_DIR} -> /workspace"
 echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}"
 echo "GZ_PARTITION=${GZ_PARTITION}"
 echo
-echo "Enter shell: ./shell.sh"
-echo "Run rqt:     ./rqt.sh"
-echo "Run RViz2:   ./rviz2.sh"
-echo "Run Gazebo:  ./gazebo.sh"
+echo "Enter shell: ./scripts/shell.sh"
+echo "Run rqt:     ./scripts/rqt.sh"
+echo "Run RViz2:   ./scripts/rviz2.sh"
+echo "Run Gazebo:  ./scripts/gazebo.sh"
