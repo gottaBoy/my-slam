@@ -371,8 +371,18 @@ Global Planner / Controller / MarkerArray）原样保留。
 采样点            占用值   到最近墙(m)   在膨胀区内
 (-0.69, 1.72)     254        0.47        是
 (-1.64, 1.66)     254        0.35        是
-(-2.12, 1.64)     205        0.05        是   <- 关键：未知区域，且贴墙 5cm
+(-2.12, 1.64)     205        0.05        是   <- 关键：离障碍只有 5cm
 ```
+
+> ⚠️ 关于「占用值」：`room.yaml` 是 `mode: trinary`，`occupied_thresh=0.65`、
+> `free_thresh=0.25`，`map_server` 按 `occ = (255 - pixel)/255` 判断：
+> `pixel=0` → occ=1.0 → **障碍**；`pixel=205` → occ=0.196 → **自由**；
+> `pixel=254` → occ=0.004 → **自由**。
+> **205 不是「未知区域」**（本图里几乎没有未知格）—— 之前这里写成未知，已更正。
+> 上表里的「到最近墙」是到 `pixel<=100` 的最近**障碍**格的距离，所以那一行说明的是
+> 「这个采样点本身是自由格，但离障碍只有 5 cm」。
+> 判据搞错会凭空造出墙来：把 205 当成障碍去算连通性，会得出「目标不可达」的错误结论。
+> 正确的判据见 `tools/map_reachability.py` 的说明。
 
 直线在 `x≈-2.12` 处离墙只有 **0.05 m**（那格还是未知区域 205），而机器人半径
 0.22 m、`inflation_radius` 0.55 m —— 这个缝根本过不去，规划器只能绕。
@@ -389,6 +399,57 @@ Global Planner / Controller / MarkerArray）原样保留。
 python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 ```
 
+
+### 一次「Nav2 反复 Failed to make progress，恢复次数耗尽后 ABORT」的调查（2026-10-01）
+
+**现象**：发目标 `(-4.5, 1.5)` 时，Nav2 反复报 `Failed to make progress` →
+`[follow_path] [ActionServer] Aborting handle`，`number_of_recoveries` 涨到 13~15 后
+以 `error_code: 105` ABORT，车最后停在 `(-8.88, -0.55)` 不动。
+
+**结论：这不是确定性 bug，是「临界 + CPU 争抢」导致的概率性失败。**
+同一份起点/目标，实测**既出现过 5 次恢复就成功（`error_code: 0`，距目标 0.23 m）**，
+**也出现过 15 次恢复后 ABORT**。所以不要去某一行配置里找「错的那一句」。
+
+逐项排除（每条都有实测证据，不是推断）：
+
+| 怀疑对象 | 怎么验的 | 结论 |
+| --- | --- | --- |
+| 车被物理卡住 | 在它停下的位置手动发 `0.25 m/s`，车走了 **1.16 m**；激光正前方 2.02 m 无障碍 | ❌ 排除 |
+| AMCL 定位飘了 | 录 `/amcl_pose` 与 `gz model -p` 真值逐点对比，全程偏差 **1~3 cm** | ❌ 排除 |
+| `collision_monitor` 把速度压成 0 | 它全程只打了启动横幅，之后再无任何消息 | ❌ 排除 |
+| 速度链上某级吃掉指令 | 同时录 `/cmd_vel_nav`、`/cmd_vel_smoothed`、`/cmd_vel`，三级**完全一致**（都是 47% 非零、范围 `[0, 0.26]`） | ❌ 排除 |
+| 目标几何上不可达 | `tools/map_reachability.py`：最宽路线最窄处半径 **0.750 m** ≫ 车半径 0.22 m | ❌ 排除 |
+| （对照）目标真不可达 | `(4.5, 1.5)` 最窄处只有 0.112 m（那格是 `cafe_table_1`），脚本正确报「不可达」 | ✅ 方法自检通过 |
+| 仿真慢导致 10 秒窗口不够 | 实测 RTF ≈ **1.00**；`use_sim_time` 全为 `True`；progress checker 两个参数都没设 = 默认 10 s / 0.5 m | ❌ 排除 |
+
+**`Failed to make progress` 本身报得没错**，它是症状不是原因。把报错时刻和真实位置对齐：
+
+| 第几次报错 | 10 秒前位置 | 报错时位置 | 10 s 位移 |
+| --- | --- | --- | --- |
+| 1 | (-8.689, -0.637) | (-8.847, -0.575) | 0.16 m |
+| 2 | (-8.847, -0.575) | (-8.894, -0.552) | 0.05 m |
+| 3 | (-8.894, -0.552) | (-8.891, -0.553) | 0.00 m |
+| 4 | (-8.891, -0.553) | (-8.883, -0.556) | 0.01 m |
+
+确实没动，判定合理。真正要解释的是「它为什么在 `x≈-8.7` 处开始减速」。
+
+**唯一站得住的相关因素：CPU 争抢。** 同期 Nav2 自己报了：
+
+```
+[controller_server]: Control loop missed its desired rate of 20.0000 Hz.
+                     Current loop rate is 5.7471 Hz.
+[planner_server]:    Planner loop missed its desired rate of 20.0000 Hz.
+                     Current loop rate is 1.3605 Hz.
+```
+
+控制环只有配置值（20 Hz）的 1/3~1/4，DWB 的轨迹采样与打分质量必然下降。
+这次是在 Gazebo + rviz + Nav2 同时开的 aarch64 机器上跑的。
+
+**建议**：
+- 跑 Nav2 相关验证时不要同时开 rviz / Gazebo GUI，先把 CPU 让出来；
+- 要复现/观察这类问题：`bash tools/run-stuck-repro.sh`
+  （瞬移回起点 + 按真值对齐 AMCL + 同时录整条速度链，一遍看完）。
+- **不要**为了这个去改书上的 Nav2 参数：参数本身没问题，是资源不够。
 
 ### 第 7 章还剩什么（诚实清单）
 
@@ -426,6 +487,11 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | `tools/probe_wheel_speed.py` | 由轮速反推控制器**实际**下发的参数值（判定「参数是否真的生效」） |
 | `tools/set_initial_pose.py` | 设 AMCL 初始位姿；`--from-gz` 直接对齐真值 |
 | `tools/check_map_point.py` | 查地图上某点是否可走（下目标点前先确认，避免误判导航失败） |
+| `tools/map_reachability.py` | 判断「A 能不能走到 B」+ 算最宽路线的最窄处半径（占用判据按 trinary 阈值，别再自己写） |
+| `tools/probe-localization-vs-truth.sh` | 同时录 AMCL 位姿和 Gazebo 真值，用来区分「物理被挡」和「定位飘了」 |
+| `tools/probe_cmd_chain.py` | 同时录 Nav2 速度链三级话题，定位「谁把速度清零了」 |
+| `tools/analyze_cmd_chain.py` | 汇总上面那份记录（按 10 秒分桶看哪一级先变 0） |
+| `tools/run-stuck-repro.sh` | 一键复现「卡住 → 恢复耗尽 → ABORT」并记录全过程 |
 | `tools/stop-nav2-patrol.sh` / `stop-nav2.sh` | 安全停止 Nav2 + 巡逻 |
 | `stop-nav2.sh` | 上面脚本的宿主机入口 |
 
@@ -489,6 +555,29 @@ data is at time 1923.405000, when looking up transform from frame
 Please set the initial pose...`（= 没有位姿），设定后立刻正常发布 `map→odom`，
 证明位姿确实被采纳了。**不要为了消这行日志去调时间戳，那是白费功夫** ——
 `tools/set_initial_pose.py` 已经把这个结论写在注释里了。
+
+**6. 从 PGM 行号反推 y 时方向搞反，整张图在 y 上被镜像了（本仓库踩过）。**
+PGM 的**首行对应 y 最大值**，所以 `row = h - 1 - int((y - oy)/res)`。
+如果遍历时按这个公式取行、却用 `y0 + i*res` 去标注行号，标签和真实 y 就差了
+一个镜像。这次因此把「障碍在 y≈0.9」当成了事实（真实位置在 y≈−5.2），
+还据此写了一整段推理。
+**解法**：不要手写扫描脚本，用 `tools/map_reachability.py` / `tools/map_clearance.py`
+（这两个的 `rc()` / 行列换算都验证过）。真要自己写，先拿一个已知点回代验证。
+
+**7. 占用判据必须和 `map_server` 一致，否则会凭空造出墙（本仓库踩过）。**
+`room.pgm` 里只有三种像素：`0`、`205`、`254`。按 `room.yaml` 的 trinary 阈值
+（`occupied_thresh=0.65`、`free_thresh=0.25`，`occ=(255−pixel)/255`）：
+
+| pixel | occ | 判定 | 本图占比 |
+| --- | --- | --- | --- |
+| 0 | 1.000 | **障碍** | 3463 px |
+| 205 | 0.196 | **自由** | 3157 px |
+| 254 | 0.004 | **自由** | 76852 px |
+
+**205 是自由空间**。把它当障碍，地图上会多出一大片不存在的墙，
+于是「目标不可达」「这里过不去」这类结论全是假的 —— 这次就这样误判过一轮，
+甚至据此怀疑是上游 Nav2 的 bug。
+**解法**：判禁用 `pixel <= 100`（等价于 occ>0.65），或直接用 `tools/map_reachability.py`。
 
 ### 第 8 章：自定义规划器 / 控制器插件
 
