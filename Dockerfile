@@ -67,6 +67,10 @@ RUN apt-get update \
 # ros-jazzy-tf-transformations 被以下代码依赖（chapt7 及本仓库原有 my_tf_pkg）：
 #   autopatrol_robot/patrol_node.py、fishbot_application/get_robot_pose.py、
 #   my_tf_pkg/{static_tf_broadcaster,dynamic_tf_broadcaster,tf_listener}.py
+#
+# ros-jazzy-example-interfaces 被第 10 章的 learn_executor_cpp 依赖
+# （example_interfaces/srv/AddTwoInts）。不加的话编译会报：
+#   Could not find a package configuration file provided by "example_interfaces"
 # ---------------------------------------------------------------------------
 ARG APT_USE_CN_MIRROR=1
 RUN set -eu; \
@@ -80,7 +84,8 @@ RUN set -eu; \
     fi; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        ros-jazzy-tf-transformations; \
+        ros-jazzy-tf-transformations \
+        ros-jazzy-example-interfaces; \
     rm -rf /var/lib/apt/lists/*
 
 ARG CONTAINER_USER=nvidia

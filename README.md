@@ -605,6 +605,58 @@ launch）必须再 `colcon build` 一次，否则 install 目录里没有它，�
 file 'bringup_sim.launch.py' was not found in the share directory of package 'fishbot_bringup'
 ```
 
+### 第 10 章：10 个学习型包
+
+直接搬入（都是独立的演示程序，和前面的机器人主线没有耦合，没有同名包冲突）：
+
+`learn_compose`（**注意它不是 docker compose**，是同进程零拷贝通信演示）、
+`learn_dds_cpp`、`learn_executor_cpp/_py`、`learn_lifecyclenode_cpp/_py`、
+`learn_message_filter_cpp/_py`、`learn_qos_cpp/_py`。
+
+#### 需要补的依赖
+
+| 包 | 原因 |
+| --- | --- |
+| `ros-jazzy-example-interfaces` | `learn_executor_cpp` 用了 `example_interfaces/srv/AddTwoInts`。不加会报 `Could not find a package configuration file provided by "example_interfaces"` |
+
+已加进 `Dockerfile` 的依赖层（和 `tf-transformations` 同一层）。
+
+#### 修了 1 处 Jazzy 弃用
+
+`learn_executor_cpp` 里 `create_service` 传的是 rmw 层的 `rmw_qos_profile_services_default`，
+这个重载在 Jazzy 已弃用：
+
+```
+warning: ... create_service(...) is deprecated:
+         use rclcpp::QoS instead of rmw_qos_profile_t
+```
+
+改成 rclcpp 层的 `rclcpp::ServicesQoS()`（语义等价）。改完整个工作区
+**22 个包零警告编译通过**。
+
+#### 逐个实测（都跑过）
+
+| 程序 | 现象 |
+| --- | --- |
+| `learn_compose intra_process_pubsub` | talker/listener 打印的**数据指针完全相同**（如 `0xB828CEC16E70`）→ 同进程零拷贝生效 |
+| `learn_dds_cpp shm_pub` | `loaned_message_publisher` 持续发布（该包只有 publisher 源码，没有 subscriber） |
+| `learn_executor_cpp/_py learn_executor` | 定时器持续发布，C++ 版打印线程 ID、Python 版还打印线程总数 |
+| `learn_qos_cpp/_py reliability_test` | `odom_publisher_subscriber` 持续收到里程计消息 |
+| `learn_message_filter_cpp/_py timesync_test` | 打印同步后的时间戳（C++ 用 imu、Python 用 odom） |
+| `learn_lifecyclenode_cpp/_py learn_lifecyclenode` | 实测生命周期切换：`unconfigured → configure → inactive → activate → active`，回调日志对应 `on_configure()/on_activate()` |
+
+```bash
+# 例：跑生命周期演示并观察状态切换
+./shell.sh -c 'ros2 run learn_lifecyclenode_py learn_lifecyclenode'   # 终端 1
+./shell.sh -c 'ros2 lifecycle get /lifecyclenode'                     # 终端 2
+./shell.sh -c 'ros2 lifecycle set /lifecyclenode configure'
+```
+
+> 这些 Python 演示被 `timeout`/Ctrl-C 杀掉时会打印
+> `rclpy.executors.ExternalShutdownException` 的 traceback —— 这是 rclpy 收到
+> SIGTERM 后的**正常**表现（节点内部没有捕获它），不是程序有 bug。
+
+
 
 
 
