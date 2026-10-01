@@ -282,6 +282,35 @@ cd /home/my/workspace/slam/my-slam && ./sim.sh --headless
 > `./stop-nav2.sh` 存在的原因见「踩坑记录」：直接写 `pkill -f "navigation2.launch.py"`
 > 有自杀风险。该脚本把 pkill 模式放进容器内的 `tools/stop-nav2-patrol.sh` 里规避。
 
+**rviz 用的是本仓库裁剪过的配置**，不是 `nav2_bringup` 自带那份：
+
+`fishbot_navigation2/rviz/fishbot_nav2.rviz`
+
+官方默认那份（`nav2_default_view.rviz`）是给 TurtleBot3 配的，里面有两项订阅的是
+我们根本没有的话题：
+
+| 显示项 | 订阅的话题 | 情况 |
+| --- | --- | --- |
+| `Bumper Hit` | `/mobile_base/sensors/bumper_pointcloud` | TB3 防撞条，我们没有 |
+| `Realsense` 组 | `/intel_realsense_r200_depth/*` | TB3 的深度相机，我们没有 |
+
+挂着不会报错，但会让人以为是哪里没配好。裁剪版把这两项去掉，换成一个默认折叠的
+`fishbot Camera` 组（`/camera/image` + `/camera/points`），其余显示项
+（Map / 全局与局部代价地图 / 路径 / 粒子云 / TF / RobotModel / LaserScan /
+Global Planner / Controller / MarkerArray）原样保留。
+
+`nav2_bringup` 升级后可以重新生成：
+
+```bash
+./shell.sh -c 'python3 /workspace/my-slam/tools/gen_nav2_rviz.py'
+```
+
+> **注意**：这个容器里 rviz2 **偶尔会在启动瞬间段错误退出**（`exit code -11`）。
+> 实测与本配置无关 —— 同一负载下单独跑 50s 稳定、0 崩溃；官方默认配置在同一容器
+> 里关闭时也会打 `terminate called without an active exception` 并 core dump。
+> 遇到就重起一次，Nav2 本身不受影响。
+
+
 ### 实测数据（2026-10-01，aarch64 / Jazzy）
 
 - Nav2 全部 lifecycle 节点 `active`，`ros2 action list` 有 `/navigate_to_pose`、`/follow_waypoints`

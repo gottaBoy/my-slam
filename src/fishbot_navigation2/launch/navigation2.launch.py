@@ -10,8 +10,14 @@ def generate_launch_description():
     fishbot_navigation2_dir = get_package_share_directory(
         'fishbot_navigation2')
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
-    rviz_config_dir = os.path.join(
-        nav2_bringup_dir, 'rviz', 'nav2_default_view.rviz')
+    # 不用 nav2_bringup 自带的 nav2_default_view.rviz：那份是给 TurtleBot3 配的，
+    # 里面的 Bumper Hit / Realsense 订阅我们根本没有的话题（防撞条、RealSense
+    # 深度相机），挂着只是徒增困惑。改用本包裁剪过的配置，只需重新生成时执行
+    # tools/gen_nav2_rviz.py。
+    rviz_config_dir = launch.substitutions.LaunchConfiguration(
+        'rviz_config',
+        default=os.path.join(fishbot_navigation2_dir, 'rviz',
+                             'fishbot_nav2.rviz'))
     
     # 创建 Launch 配置
     use_sim_time = launch.substitutions.LaunchConfiguration(
@@ -34,6 +40,8 @@ def generate_launch_description():
                                              description='Full path to param file to load'),
         launch.actions.DeclareLaunchArgument('rviz', default_value=rviz,
                                              description='是否启动 rviz2（无头验证传 false）'),
+        launch.actions.DeclareLaunchArgument('rviz_config', default_value=rviz_config_dir,
+                                             description='rviz 配置文件路径'),
 
         launch.actions.IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
