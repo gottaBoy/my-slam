@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>gz_sensor_bridge</name>
+  <version>0.1.0</version>
+  <description>
+    把 Gazebo Sim 的传感器话题（IMU、RGB-D 相机）转成 ROS 话题的桥节点。
+
+    与 ros_gz_bridge 的 parameter_bridge **二选一**：两者实测等价，用 launch 参数
+    sensor_bridge 切换（见 fishbot_description/launch/gazebo_sim_gz.launch.py）。
+    本节点不是必需的 —— 早先曾把 parameter_bridge 桥不出这几个话题归因于上游
+    缺陷，该结论已撤回（原因未定位、且当前无法复现），详见 README。
+  </description>
+  <maintainer email="dev@example.com">my-slam dev</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+
+  <!-- gz-transport13 / gz-msgs10 这两个 CMake 包由 ROS 的 vendor 包提供：
+       gz_transport_vendor / gz_msgs_vendor，随 ros-jazzy-ros-gz 一起安装，
+       不需要额外 apt 安装，也不在 rosdep 里，所以不写 depend。 -->
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

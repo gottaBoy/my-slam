@@ -17,9 +17,19 @@
 import os
 import sys
 
-DEFAULT_SRC = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    '..', 'src', 'fishbot_navigation2', 'config', 'nav2_params.yaml')
+def _find_in_src(rel_path):
+    """在 src/ 下定位文件，允许一级分组目录（src/<组>/<包>/...）。"""
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src')
+    if os.path.exists(os.path.join(root, rel_path)):
+        return os.path.join(root, rel_path)
+    for group in sorted(os.listdir(root)):
+        cand = os.path.join(root, group, rel_path)
+        if os.path.exists(cand):
+            return cand
+    return os.path.join(root, rel_path)
+
+
+DEFAULT_SRC = _find_in_src('fishbot_navigation2/config/nav2_params.yaml')
 
 CONTROLLER_FROM = '      plugin: "dwb_core::DWBLocalPlanner"'
 CONTROLLER_TO = (

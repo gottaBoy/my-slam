@@ -33,4 +33,4 @@ trap cleanup INT TERM EXIT
 # CEXEC_NO_EXEC=1 是必须的：如果用 exec 替换掉进程，EXIT trap 就不会执行，
 # 残留的 teleop 会继续发 /cmd_vel。
 CEXEC_NO_EXEC=1 cexec python3 \
-    /workspace/my-slam/src/fishbot_description/scripts/fishbot_teleop.py "$@"
+/workspace/my-slam/src/robot/fishbot_description/scripts/fishbot_teleop.py "$@"

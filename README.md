@@ -31,6 +31,41 @@
 Eigen、OpenCV、Ceres 目前由 ROS 相关依赖引入，并非 Dockerfile 中显式指定的包；
 Pangolin、g2o 未自动补装，也未修改其他项目自带的依赖。
 
+## 工作空间结构
+
+> 每个模块是干什么的、怎么跑、有没有验证过 → [`docs/模块清单.md`](docs/模块清单.md)
+> 踩过的坑与排查过程（问题 / 现象 / 原因 / 解决） → [`docs/问题记录.md`](docs/问题记录.md)
+
+`my-slam/src/` 下 **22 个包**，按功能分 4 组：
+
+```text
+src/
+├─ robot/         机器人本体：描述、仿真、启动、传感器桥
+│   fishbot_description        URDF/Xacro 模型、Gazebo 世界、仿真启动
+│   fishbot_bringup            启动：真机 bringup + 仿真版一键启动
+│   gz_sensor_bridge           IMU + 相机话题的桥（可选）
+├─ navigation/    Nav2 配置与自研插件
+│   fishbot_navigation2        Nav2 参数 + 预制地图 + rviz 配置
+│   nav2_custom_planner        Nav2 自定义全局规划器插件
+│   nav2_custom_controller     Nav2 自定义控制器插件
+├─ app/           应用层
+│   fishbot_application        Python 应用示例（4 个节点）
+│   fishbot_application_cpp    C++ 导航示例
+│   autopatrol_interfaces      巡检应用的服务接口
+│   autopatrol_robot           巡检主循环 + 语音播报
+└─ learning/      学习型示例（12 个，与机器人主线无耦合）
+    learn_compose / learn_dds_cpp
+    learn_executor_cpp / _py
+    learn_lifecyclenode_cpp / _py
+    learn_message_filter_cpp / _py
+    learn_qos_cpp / _py
+    my_tf_cpp / my_tf_pkg
+```
+
+**分组只影响目录，不影响包名** —— colcon 递归发现 `src/` 下的包，
+`ros2 launch` / `ros2 run` / `get_package_share_directory` 都按包名解析，
+所以调整分组**不需要**改任何 launch 或脚本（`tools/` 下的脚本也已改成自动搜索）。
+
 ## 完整启停流程（照着敲）
 
 这一节是日常最常用的全部命令，自成一块。**所有命令都在宿主机上执行**，脚本会自己
@@ -129,6 +164,7 @@ cd /home/my/workspace/slam/my-slam
 | 容器里残留一堆进程 | 见「三、停止」里那条 `pkill`；要顺手重开一个仿真就用 `./sim.sh --clean` |
 | 改了 `gz_sensor_bridge` 的代码 | `./shell.sh -c 'cd /workspace/my-slam && colcon build --packages-select gz_sensor_bridge'` |
 | 想查「这个报错当时是怎么定位的」 | 看 `docs/问题记录.md`：按问题类型整理，每条统一写清**问题 / 现象 / 原因 / 解决方法** |
+| 想知道某个包是干什么的、怎么跑 | 看 `docs/模块清单.md` |
 
 关于相机帧率：`/camera/camera_info` 稳定跑在配置的 **10 Hz**（它不需要渲染），
 而 `/camera/image`、`/camera/depth_image` 只有 3~4 Hz —— 瓶颈是 Gazebo 的离屏渲染，

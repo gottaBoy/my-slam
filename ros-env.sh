@@ -2,7 +2,7 @@
 
 source "/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash"
 
-# 本工作空间：/workspace/my-slam（src/ 下是本项目的三个包）。
+# 本工作空间：/workspace/my-slam（src/ 下按功能分组：robot/ navigation/ app/ learning/）。
 # 旧的 /workspace/install 从来不存在，所以一直没生效。
 for ws in /workspace/my-slam /workspace; do
     if [ -f "${ws}/install/setup.bash" ]; then

@@ -37,10 +37,22 @@ except ImportError:
     raise
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_MAP = os.path.join(TOOLS_DIR, '..', 'src', 'fishbot_navigation2',
-                           'maps', 'room.pgm')
-DEFAULT_YAML = os.path.join(TOOLS_DIR, '..', 'src', 'fishbot_navigation2',
-                            'maps', 'room.yaml')
+
+
+def _find_in_src(rel_path):
+    """在 src/ 下定位文件，允许一级分组目录（src/<组>/<包>/...）。"""
+    root = os.path.join(TOOLS_DIR, '..', 'src')
+    if os.path.exists(os.path.join(root, rel_path)):
+        return os.path.join(root, rel_path)
+    for group in sorted(os.listdir(root)):
+        cand = os.path.join(root, group, rel_path)
+        if os.path.exists(cand):
+            return cand
+    return os.path.join(root, rel_path)
+
+
+DEFAULT_MAP = _find_in_src('fishbot_navigation2/maps/room.pgm')
+DEFAULT_YAML = _find_in_src('fishbot_navigation2/maps/room.yaml')
 
 OCCUPIED_THRESH = 0.65
 FREE_THRESH = 0.25

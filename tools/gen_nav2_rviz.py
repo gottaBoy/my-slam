@@ -14,7 +14,7 @@ LaserScan / Global Planner / Controller / MarkerArray）原样保留。
 
 用法（容器内，需要 ROS 环境）：
   python3 tools/gen_nav2_rviz.py
-生成结果：src/fishbot_navigation2/rviz/fishbot_nav2.rviz
+生成结果：src/navigation/fishbot_navigation2/rviz/fishbot_nav2.rviz
 """
 
 import os
@@ -22,10 +22,20 @@ import sys
 
 import yaml
 
+def _find_in_src(rel_path):
+    """在 src/ 下定位文件，允许一级分组目录（src/<组>/<包>/...）。"""
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src')
+    if os.path.exists(os.path.join(root, rel_path)):
+        return os.path.join(root, rel_path)
+    for group in sorted(os.listdir(root)):
+        cand = os.path.join(root, group, rel_path)
+        if os.path.exists(cand):
+            return cand
+    return os.path.join(root, rel_path)
+
+
 DEFAULT_SRC = '/opt/ros/jazzy/share/nav2_bringup/rviz/nav2_default_view.rviz'
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                   '..', 'src', 'fishbot_navigation2', 'rviz',
-                   'fishbot_nav2.rviz')
+OUT = _find_in_src('fishbot_navigation2/rviz/fishbot_nav2.rviz')
 
 DROP = {'Bumper Hit', 'Realsense'}
 

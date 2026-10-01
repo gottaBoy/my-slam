@@ -19,12 +19,20 @@ import sys
 
 import numpy as np
 
-DEFAULT_MAP = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    '..', 'src', 'fishbot_navigation2', 'maps', 'room.pgm')
-DEFAULT_YAML = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    '..', 'src', 'fishbot_navigation2', 'maps', 'room.yaml')
+def _find_in_src(rel_path):
+    """在 src/ 下定位文件，允许一级分组目录（src/<组>/<包>/...）。"""
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src')
+    if os.path.exists(os.path.join(root, rel_path)):
+        return os.path.join(root, rel_path)
+    for group in sorted(os.listdir(root)):
+        cand = os.path.join(root, group, rel_path)
+        if os.path.exists(cand):
+            return cand
+    return os.path.join(root, rel_path)
+
+
+DEFAULT_MAP = _find_in_src('fishbot_navigation2/maps/room.pgm')
+DEFAULT_YAML = _find_in_src('fishbot_navigation2/maps/room.yaml')
 
 
 def read_yaml(path):
