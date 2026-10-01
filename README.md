@@ -128,6 +128,7 @@ cd /home/my/workspace/slam/my-slam
 | 有数据但内容看着不对 | `./shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py'` |
 | 容器里残留一堆进程 | 见「三、停止」里那条 `pkill`；要顺手重开一个仿真就用 `./sim.sh --clean` |
 | 改了 `gz_sensor_bridge` 的代码 | `./shell.sh -c 'cd /workspace/my-slam && colcon build --packages-select gz_sensor_bridge'` |
+| 想查「这个报错当时是怎么定位的」 | 看 `docs/问题记录.md`：按问题类型整理，每条统一写清**问题 / 现象 / 原因 / 解决方法** |
 
 关于相机帧率：`/camera/camera_info` 稳定跑在配置的 **10 Hz**（它不需要渲染），
 而 `/camera/image`、`/camera/depth_image` 只有 3~4 Hz —— 瓶颈是 Gazebo 的离屏渲染，
