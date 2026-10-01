@@ -80,6 +80,10 @@ cd /home/my/workspace/slam/my-slam
 ./shell.sh -c 'ros2 topic hz /scan'
 ./shell.sh -c 'ros2 run tf2_ros tf2_echo base_footprint camera_optical_link'
 
+./shell.sh -c 'ros2 node list'                    # 有哪些节点
+./shell.sh -c 'ros2 node info /gz_sensor_bridge'  # 单个节点的发布/订阅/服务
+./shell.sh -c 'ros2 topic info /cmd_vel -v'       # 谁在发、谁在收、QoS 是什么
+
 # 一键自检：检查图像/点云长度是否自洽、内参是否非零、IMU 重力是否合理
 # 退出码 0 = 全部通过
 ./shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py'
