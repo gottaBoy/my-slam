@@ -431,6 +431,32 @@ pkill 把自己的 shell 也杀了，表现为「命令什么都没输出就退�
 （快约 400 倍）；Ubuntu ports 官方源也慢。`Dockerfile` 里新增的依赖层默认走国内
 镜像，可用 `--build-arg APT_USE_CN_MIRROR=0` 切回官方源。
 
+**5. AMCL 的 `Failed to transform initial pose in time` 是噪声，可忽略。**
+设初始位姿时 AMCL 几乎必打这一行：
+
+```
+[amcl]: Failed to transform initial pose in time (Lookup would require
+extrapolation into the future. Requested time 1923.414000 but the latest
+data is at time 1923.405000, when looking up transform from frame
+[base_footprint] to frame [odom])
+```
+
+原因是 `odom->base_footprint` 这条 TF 比仿真时钟滞后约 0.2~0.3 s（`/odom` 是
+50 Hz，但 TF 的时间戳落后于 `/clock`）。**但它不影响位姿生效**，实测三种时间戳
+策略后 `/amcl_pose` 与真值的差分别是：
+
+| 时间戳策略 | 与真值偏差 |
+| --- | --- |
+| `now - 0.2s` | 0.016 m |
+| `now - 0.3s` | 0.053 m |
+| `0`（tf2 取最新） | 0.036 m |
+
+而且设定前 AMCL 一直在打 `AMCL cannot publish a pose or update the transform.
+Please set the initial pose...`（= 没有位姿），设定后立刻正常发布 `map→odom`，
+证明位姿确实被采纳了。**不要为了消这行日志去调时间戳，那是白费功夫** ——
+`tools/set_initial_pose.py` 已经把这个结论写在注释里了。
+
+
 ## 启动
 
 ```bash
