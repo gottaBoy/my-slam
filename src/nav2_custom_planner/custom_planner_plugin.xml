@@ -1,0 +1,9 @@
+<library path="nav2_custom_planner_plugin">
+	<!-- 原书是 nav2_custom_planner/CustomPlanner（Humble 风格）。
+	     Jazzy 的 pluginlib 要求双冒号，nav2 自带的插件也都是 ::，
+	     不改的话加载时会报 class ... does not exist。
+	     params 里引用同一个字符串：nav2_custom_planner::CustomPlanner -->
+	<class name="nav2_custom_planner::CustomPlanner" type="nav2_custom_planner::CustomPlanner" base_class_type="nav2_core::GlobalPlanner">
+	  <description>是一个自定义示例插件，用于生成自定义路径。</description>
+	</class>
+</library>

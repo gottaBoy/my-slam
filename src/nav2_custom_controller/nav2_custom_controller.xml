@@ -1,0 +1,12 @@
+<class_libraries>
+    <library path="nav2_custom_controller_plugin">
+        <!-- 原书这个 <class> 没写 name 属性。params 里引用的是
+             nav2_custom_controller::CustomController，这里显式补上，
+             避免依赖 pluginlib 对缺失 name 的默认行为。 -->
+        <class name="nav2_custom_controller::CustomController" type="nav2_custom_controller::CustomController" base_class_type="nav2_core::Controller">
+            <description>
+                自定义导航控制器
+            </description>
+        </class>
+    </library>
+</class_libraries>

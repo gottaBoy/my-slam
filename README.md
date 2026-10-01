@@ -485,6 +485,49 @@ Please set the initial pose...`（= 没有位姿），设定后立刻正常发�
 证明位姿确实被采纳了。**不要为了消这行日志去调时间戳，那是白费功夫** ——
 `tools/set_initial_pose.py` 已经把这个结论写在注释里了。
 
+### 第 8 章：自定义规划器 / 控制器插件
+
+搬入两个插件包：`nav2_custom_planner`、`nav2_custom_controller`
+（第 8 章的 `fishbot_description` 相对第 6 章**没有变化**——轮距 0.17、协方差、
+雷达参数都是旧值，是第 7 章改过又在这里回退了；我们按 URDF 证据保持 0.20 不变）。
+
+#### 修了 4 处 Jazzy 不兼容（都带原始报错）
+
+| # | 报错 / 问题 | 原因 | 改法 |
+| --- | --- | --- | --- |
+| 1 | `fatal error: nav2_core/exceptions.hpp: No such file or directory` | Jazzy 把这个头拆成了 `planner_exceptions.hpp` / `controller_exceptions.hpp` / `smoother_exceptions.hpp` / `route_exceptions.hpp` | planner 用 `planner_exceptions.hpp`，controller 用 `controller_exceptions.hpp` |
+| 2 | `invalid new-expression of abstract class type 'CustomPlanner'`：`createPlan` 未覆盖纯虚 | Jazzy 的 `GlobalPlanner::createPlan` 多了 `std::function<bool()> cancel_checker` 参数 | 补上该参数，并在生成路径的循环里用它支持中途取消 |
+| 3 | 隐藏 bug（不报错，但危险） | 书里的**控制器**抛的是 `nav2_core::PlannerException` | 实测 `libcontroller_server_core.so` 里只出现 `nav2_core::ControllerException`、`libplanner_server_core.so` 里只出现 `PlannerException` → 控制器抛错了不会被接住，改成 `ControllerException` |
+| 4 | 插件 XML 类名 | `custom_planner_plugin.xml` 用 Humble 的 `nav2_custom_planner/CustomPlanner`；`nav2_custom_controller.xml` 甚至没写 `name` 属性 | 统一改成 `包名::类名`（`nav2_custom_planner::CustomPlanner`、`nav2_custom_controller::CustomController`） |
+
+#### 默认不替换插件（刻意选择）
+
+教材第 8 章把 `FollowPath` 的 DWB 和 `GridBased` 的 navfn **直接换成**了自研插件。
+但那个自研规划器是**起终点直线插值、不绕障**，控制器也只是朝目标直行、限速 0.1 m/s——
+换上去会让第 7 章已验证的巡逻/导航直接降级。
+
+所以本仓库的做法是：**默认保持 DWB + navfn**，在 `nav2_params.yaml` 里把自研插件的
+配置写成带说明的注释块，想体验时改一行即可（`FollowPath` 和 `GridBased` 两处）。
+
+#### 实测结果（用临时参数文件跑，不改仓库配置）
+
+| 检查 | 结果 |
+| --- | --- |
+| 插件加载 | `Created controller : FollowPath of type nav2_custom_controller::CustomController`<br>`Created global planner plugin GridBased of type nav2_custom_planner::CustomPlanner` |
+| lifecycle | 全部 `active`，0 个 ERROR/FATAL |
+| 端到端 | 目标 `map(2.60, 0.90)` → 真值终点 `(2.580, 0.974)`，**误差 0.077 m**，`SUCCEEDED` |
+| 回归 | 恢复 DWB/navfn 后参数文件仍合法、Nav2 正常启动 |
+
+复现方式（不动仓库配置）：
+
+```bash
+# 造一份临时参数：把两个 plugin 行换成自研插件并补上它们的参数
+./shell.sh -c 'python3 /workspace/my-slam/tools/make_custom_plugin_params.py /tmp/nav2_custom_test.yaml'
+# 用它启动
+./shell.sh -c 'ros2 launch fishbot_navigation2 navigation2.launch.py rviz:=false params_file:=/tmp/nav2_custom_test.yaml'
+```
+
+
 
 ## 启动
 
