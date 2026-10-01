@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>DDS 共享内存通信演示</description>
   <maintainer email="87068644+fishros@users.noreply.github.com">fishros</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

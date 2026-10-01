@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>mybot 的 C++ 导航示例：向 Nav2 发送 NavigateToPose 目标</description>
   <maintainer email="fish@fishros.com">fishros</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

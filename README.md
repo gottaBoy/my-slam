@@ -1597,3 +1597,60 @@ ros2 launch mybot_description display_robot.launch.py
 
 详见上文「mybot 的 Gazebo Sim 仿真」一节。宿主机上对应入口：
 `./scripts/gazebo.sh` 起容器、`./scripts/shell.sh` 进容器、`./scripts/teleop.sh` 键盘遥控。
+
+---
+
+## 许可证
+
+本项目以 **Apache-2.0** 授权，全文见 [`LICENSE`](LICENSE)。
+`src/` 下 22 个包在各自的 `package.xml` 中统一声明 `<license>Apache-2.0</license>`。
+
+### 为什么是 Apache-2.0（不是随手选的）
+
+这个代码库里**只有 Apache-2.0 被声明过**，三处独立证据一致：
+
+| 证据 | 内容 |
+| --- | --- |
+| 本项目原本已填的 4 个包 | `mybot_description`、`gz_sensor_bridge`、`my_tf_cpp`、`my_tf_pkg` —— 填的都是 `Apache-2.0` |
+| 上游参考代码 `ros2bookcode/` | 16 个包声明 `Apache-2.0`（另外 26 个是未填的 `TODO`） |
+| 本 README「生成项目」一节 | `ros2 pkg create` 示例里写的就是 `--license Apache-2.0` |
+
+最后一条还解释了 `TODO` 的来源：`my_tf_pkg` / `my_tf_cpp` 正是 README 里用
+**带 `--license Apache-2.0` 的命令**创建的，它们原本就声明了 Apache-2.0；
+而其余 18 个包创建时没带 `--license`，于是留下了 `ros2 pkg create` 的脚手架默认值
+`TODO: License declaration`。**所以这次统一是把原本的意图显式写全，不是改变授权。**
+
+### `maintainer` 字段刻意没有统一
+
+22 个包的 `maintainer` 目前有 4 类来源，**全部保留原样**：
+
+| 来源 | 包数 | 值 |
+| --- | --- | --- |
+| 上游 `ros2bookcode` 的脚手架 | 17 | `fishros <87068644+fishros@users.noreply.github.com>` |
+| 上游 `ros2bookcode`（另一种写法） | 1 | `fishros <fish@fishros.com>` —— `mybot_application_cpp` |
+| 上游 `ros2bookcode` 的另一位作者 | 1 | `mzebra <mzebra@foxmail.com>` —— `mybot_description` |
+| 容器里 `ros2 pkg create` 生成的占位值 | 2 | `nvidia <nvidia@todo.todo>` —— `my_tf_cpp`、`my_tf_pkg` |
+| 本仓库自写 | 1 | `my-slam dev <dev@example.com>` —— `gz_sensor_bridge` |
+
+前三类（19 个包）是**上游作者的归属信息**。Apache-2.0 第 4(c) 条要求再分发时保留
+来源形式的版权与归属声明，所以**不应该**为了让字段看起来整齐就把它们改成自己的名字 ——
+那正是这一条要防止的事。后两类（`nvidia@todo.todo`、`dev@example.com`，共 3 个包）
+是纯粹的占位值，改不改都不涉及合规问题。
+
+> 附：Python 包里的 `test/test_copyright.py` 是 `ros2 pkg create` 的脚手架产物
+> （7 个包有，共 6 个 `setup.py` 声明了 `tests_require=['pytest']`）。
+> 它用 `ament_copyright` 检查**源代码文件头**有没有版权与许可声明 ——
+> 和 `package.xml` 的 `<license>` 是两件事。而我们的源码文件头确实没有版权声明。
+>
+> 不过这份脚手架里它**自己就被标了 skip**：
+>
+> ```python
+> @pytest.mark.skip(reason='No copyright header has been placed in the generated source file.')
+> def test_copyright():
+>     rc = main(argv=['.', 'test'])
+>     assert rc == 0, 'Found errors'
+> ```
+>
+> 所以即使跑 `colcon test`，它也只会显示为 skipped，不会真的拦住构建。
+> 本仓库没有 CI（无 `.github/workflows`），`colcon test` 也从未跑过
+> （`log/` 下只有 `build_*`，没有测试结果目录）。

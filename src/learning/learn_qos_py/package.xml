@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Python QoS 策略演示：可靠性 / 历史深度对通信的影响</description>
   <maintainer email="87068644+fishros@users.noreply.github.com">fishros</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

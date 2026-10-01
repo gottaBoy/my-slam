@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>C++ QoS 策略演示：可靠性 / 历史深度对通信的影响</description>
   <maintainer email="87068644+fishros@users.noreply.github.com">fishros</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

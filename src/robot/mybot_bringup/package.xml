@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>mybot 的启动文件：真机 bringup，以及 Gazebo 仿真版一键启动</description>
   <maintainer email="87068644+fishros@users.noreply.github.com">fishros</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
