@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-从本仓库的 nav2_params.yaml 生成一份「启用第 8 章自研插件」的临时参数文件。
+从本仓库的 nav2_params.yaml 生成一份「启用自研插件」的临时参数文件。
 
 为什么不直接改仓库里的配置：nav2_custom_planner 是在起终点之间做**直线插值、
 不绕障**的示例规划器，nav2_custom_controller 只是朝目标直行且限速 0.1 m/s。
-把它们设成默认会让第 7 章已验证的巡逻/导航直接降级。所以默认保持 DWB + navfn，
+把它们设成默认会让已验证的巡逻/导航直接降级。所以默认保持 DWB + navfn，
 需要体验时用这个脚本生成一份临时参数，通过 launch 的 params_file 覆盖即可，
 跑完即弃、不影响仓库状态。
 

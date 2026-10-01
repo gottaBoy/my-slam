@@ -1,7 +1,7 @@
-"""fishbot 仿真一键启动（对应第 9 章 bringup 的「仿真版」）。
+"""fishbot 仿真一键启动（真机 bringup 的「仿真版」）。
 
 为什么要单独有一个：
-    第 9 章的 launch/bringup.launch.py 是给**真机**用的，它启动的是
+    launch/bringup.launch.py 是给**真机**用的，它启动的是
     ydlidar（实体雷达）、micro_ros_agent（单片机）、ros_serial2wifi（串口转
     WiFi）这些节点，依赖三个本仓库没有的包。直接跑会得到：
         PackageNotFoundError: "package 'ydlidar' not found"

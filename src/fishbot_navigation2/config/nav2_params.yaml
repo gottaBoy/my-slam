@@ -108,15 +108,15 @@ controller_server:
     # DWB parameters
     FollowPath:
       # ---------------------------------------------------------------
-      # 【第 8 章】教材把控制器换成了自研插件。本仓库默认**仍用 DWB**，
-      # 以免影响第 7 章已验证的巡逻/导航行为。想体验自研控制器，把下面那行
+      # 原始实现把控制器换成了自研插件。本仓库默认**仍用 DWB**，
+      # 以免影响已验证的巡逻/导航行为。想体验自研控制器，把下面那行
       # plugin 换成：
       #
       #   plugin: "nav2_custom_controller::CustomController"
       #   max_linear_speed: 0.1
       #   max_angular_speed: 1.0
       #
-      # 已实测（详见 README「第 8 章」）：
+      # 已实测（详见 README 的「自定义规划器 / 控制器插件」一节）：
       #   controller_server 打印 “Created controller : FollowPath of type
       #   nav2_custom_controller::CustomController”；
       #   目标 (2.60,0.90) -> 真值终点 (2.580,0.974)，误差 0.077 m，SUCCEEDED。
@@ -265,7 +265,7 @@ planner_server:
       # 原书为 Humble 写法 nav2_navfn_planner/NavfnPlanner，Jazzy 里必须用 ::，
       # 否则 planner_server 启动即 FATAL："class ... does not exist"。
       #
-      # 【第 8 章】想换成教材的自研规划器，把下面那行 plugin 换成：
+      # 想换成自研规划器（示例插件），把下面那行 plugin 换成：
       #
       #   plugin: "nav2_custom_planner::CustomPlanner"
       #   interpolation_resolution: 0.1
