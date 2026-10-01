@@ -15,4 +15,7 @@ rosbag2_*
 gz-cache
 # 巡逻案例运行时产出的照片（autopatrol.launch.py 的 image_save_path）
 /patrol_images/
+# Python 缓存：不要在包里提交 .pyc
+__pycache__/
+*.pyc
 .env
