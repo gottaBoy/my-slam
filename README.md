@@ -335,7 +335,7 @@ Global Planner / Controller / MarkerArray）原样保留。
 | `fishbot_application nav_to_pose` | map(1,1) | (1.24, 1.30) | ✅ SUCCEEDED |
 | `fishbot_application waypoint_follower` | (0,0)→(2,0)→(2,2) | (2.17, 1.88) | ✅ SUCCEEDED |
 | `fishbot_application get_robot_pose` | 只读 TF 位姿 | — | ✅ 正常打印（顺带验证了 `tf_transformations` 可用） |
-| `fishbot_application_cpp nav2pose` | map(2,2) | (2.27, 1.97) | ✅「处理成功」 |
+| `fishbot_application_cpp nav2pose` | map(2,2) | (2.27, 1.97) / 修orientation后 (2.22, 1.90) | ✅「处理成功」（修的是非法四元数，精度取决于容差，见下） |
 | `autopatrol_robot patrol_node` + `speaker` | 5 个巡逻点 | 见上表 | ✅ 5/5 成功 |
 
 这些例子都要 `use_sim_time`，例如：
@@ -348,11 +348,16 @@ Global Planner / Controller / MarkerArray）原样保留。
 另外 3 个例子用 `ros2 run` 根本找不到（书里 README 也没给运行命令，属于漏注册）。
 本仓库把 4 个都注册上了。
 
-**`nav2pose.cpp` 的一个隐患（暂按原样保留）**：它设置目标点时**没有设
-`orientation.w`**，实际发出去的四元数是 (0,0,0,0)，是非法旋转。实测仍能到达
-(2,2)，是因为 `xy_goal_tolerance` / `yaw_goal_tolerance = 0.25` 把问题兜住了
-（终点朝向 0.239 rad，刚好卡在容差边缘）。一旦把容差收紧就会暴露。教材代码
-暂不改，只记录。
+**`nav2pose.cpp` 的非法四元数（已修）**：它设置目标点时**没有设
+`orientation.w`**，发出去的四元数是 `(0,0,0,0)` —— 模长为 0，不是单位四元数，
+属于非法旋转。本仓库补上了 `goal_msg.pose.pose.orientation.w = 1.0;`。
+
+> 诚实说明：**修完行为没有可测量的变化**。修之前终点朝向 0.2388 rad、修之后
+> 0.2450 rad，都在 `yaw_goal_tolerance = 0.25` 的边缘 —— 说明 Nav2 本来就把
+> `(0,0,0,0)` 当成 yaw=0 处理了，**最终朝向是由容差决定的，不是由目标四元数
+> 决定的**。所以这是一处「消除非法值、避免依赖未定义行为」的正确性修复，
+> 不要期待它提升精度。真要提升到位精度，得收紧
+> `xy_goal_tolerance`/`yaw_goal_tolerance`，同时提高 AMCL 收敛质量。
 
 **关于定位精度**：上面几次的「真值终点 vs 目标点」误差在 0.16~0.38 m 之间，
 和 AMCL 的收敛程度、地图栅格精度（0.05 m）都有关系，不是导航链路的问题。

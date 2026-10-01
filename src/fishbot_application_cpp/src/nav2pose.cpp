@@ -29,6 +29,14 @@ class NavToPoseClient : public rclcpp::Node {
     goal_msg.pose.pose.position.x = 2.0f;  // 设置目标点的x坐标为2.0
     goal_msg.pose.pose.position.y = 2.0f;  // 设置目标点的y坐标为2.0
 
+    // 【本仓库修正】原书没有设置朝向，orientation 保持默认的 (0,0,0,0)。
+    // 四元数 (0,0,0,0) 是**非法旋转**（模长为 0，不是单位四元数）。
+    // 之所以看起来能用，是因为 xy_goal_tolerance / yaw_goal_tolerance 都是
+    // 0.25，把问题兜住了（实测终点朝向 0.239 rad，刚好卡在容差边缘）；
+    // 一旦收紧容差就会暴露，某些实现还可能在归一化时产生 NaN。
+    // 这里补成单位四元数，即朝向 yaw = 0。
+    goal_msg.pose.pose.orientation.w = 1.0;
+
     auto send_goal_options =
         rclcpp_action::Client<NavigationAction>::SendGoalOptions();
     // 设置请求目标结果回调函数
