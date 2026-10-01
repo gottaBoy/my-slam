@@ -151,6 +151,259 @@ gz 的激光本来就发布在这两个话题上；如果桥再建一条 ROS→G
 
 检查方法：`./shell.sh -c 'ros2 topic info /imu -v | grep "Publisher count"'` 应该是 **1**。
 
+## 移植教材章节到 my-slam
+
+`ros2bookcode/` 是**只读参考**，不参与编译；`my-slam/src/` 是唯一活代码。
+目标是每章搬完后把课件那份留在原地、功能收进本仓库，最终只有一份代码。
+
+### 通用流程（搬任何一章都照这个走）
+
+| 步 | 做什么 | 怎么验收 |
+| --- | --- | --- |
+| 0 | 清理 `src/` 杂物（挪走非包目录） | `ls src` 只剩真包 |
+| 1 | `diff -rq` 新章 vs 本仓库，把差异分成「纯新增」和「改已有」 | 差异清单列全，不靠印象 |
+| 2 | **改已有的**：只挑有依据的改动，逐条给理由 + 实测验证 | 每条改动都有可证伪的测量 |
+| 3 | **纯新增的**：整包复制进 `my-slam/src/`，**排除同名包** | `colcon build` 通过，包名无重复 |
+| 4 | 依赖：先编译看真实报错，缺什么装什么 | 缺的依赖同时写进 `Dockerfile` |
+| 5 | 适配（多数是 Humble → Jazzy 的差异） | 见下面「Jazzy 参数坑」 |
+| 6 | 端到端跑通 | 用**真值**（`gz model -m fishbot -p`）核对，不看日志自述 |
+| 7 | 回归测试 | 见「回归清单」 |
+| 8 | 写文档 | 本节 |
+
+**原则**：同名包绝不整包覆盖 —— `fishbot_description` 是本仓库的超集，
+覆盖会把 gz 版全弄丢，`./sim.sh` 直接报废。
+
+### 第 7 章：搬了什么
+
+复制进 `my-slam/src/` 的 5 个包（`fishbot_description` **不复制**）：
+
+| 包 | 内容 |
+| --- | --- |
+| `fishbot_navigation2` | Nav2 bringup 配置 + 预制地图 `maps/room.pgm` |
+| `fishbot_application` | Python 例子（设初始位姿 / 查位姿 / 去一点 / 走路点） |
+| `fishbot_application_cpp` | C++ 版导航客户端 |
+| `autopatrol_interfaces` | 自定义服务 `SpeachText`（书上拼写如此） |
+| `autopatrol_robot` | 巡逻主循环 + 语音节点 + 配置 |
+
+### 第 7 章：改了哪些已有代码（每条都有实测）
+
+第 7 章偷偷动过 `fishbot_description` 两个文件，而本仓库的基线是第 6 章，所以
+这两处需要单独判断。
+
+| 改动 | 采纳? | 依据 |
+| --- | --- | --- |
+| `wheel_separation: 0.17 → 0.20` | ✅ 采纳 | URDF 里轮子在 `y = ±0.10`，轮距就是 0.20。实测见下表 |
+| 雷达 `update_rate: 5 → 10` | ✅ 采纳 | 建图/导航扫描更密；实测 `/scan` 9.99 Hz |
+| 雷达 `<remapping>~/out:=scan1</remapping>` | ❌ 不采纳 | 同章 `nav2_params.yaml` 订阅的是 `/scan`，两边对不上，像是笔误 |
+| 里程计协方差全改 0 | ❌ 不采纳 | 全 0 等于「完全可信」，会让 AMCL 几乎不修正里程计漂移 |
+| `amcl: base_footprint` + `costmap: base_link` | ❌ 不改 | 查过官方默认 `nav2_params.yaml` 也是这样，不是书的问题 |
+
+轮距的 A/B 实测（`tools/verify_wheel_separation.py`，判据是 **Gazebo 真值**）：
+
+| 配置 | 由轮速反推的实际值 | 指令转角 | `/odom` 认为转了 | **真值实际转了** |
+| --- | --- | --- | --- | --- |
+| `0.17` | 0.1700 | 1.2119 rad | 1.2114（−0.04%） | **1.0305（−14.96%）** ❌ |
+| `0.20` | 0.2000 | 1.2116 rad | 1.2060（−0.47%） | **1.2066（−0.41%）** ✅ |
+
+**注意**：`ros2 param set /fishbot_diff_drive_controller wheel_separation ...`
+**看起来成功，实际不生效**。实测把参数设成 0.10 / 0.40，由轮速反推的下发值都是
+0.2000（不改）。要改必须重启控制器让它重新加载参数文件。
+
+### Jazzy 参数坑（Humble → Jazzy，都带原始报错）
+
+书上针对 Humble 写的 `nav2_params.yaml` 在 Jazzy 里会连环报错，按下面顺序改：
+
+| # | 现象（原始报错） | 原因 | 改法 |
+| --- | --- | --- | --- |
+| 1 | `planner_server: Failed to create global planner. ... the class nav2_navfn_planner/NavfnPlanner ... does not exist` | 插件类名旧写法 `包/类` | 全部改成 `包::类`（如 `nav2_navfn_planner::NavfnPlanner`、`nav2_behaviors::Spin`） |
+| 2 | `bt_navigator: Failed to create navigator id navigate_to_pose. Exception: ID [ComputePathToPose] already registered`，随后 `component_container` 段错误退出 | 书里手动列了全部内置 BT 节点，而 Jazzy 已自动注册，重复注册 | 把 `plugin_lib_names` 整块**注释掉** |
+| 3 | `Expected 'value' to be one of [float, int, str, bool, bytes], but got '()' of type 'tuple'` | 上一步写成了 `plugin_lib_names: []`，launch 归一化时把空列表变成空元组 | 整行注释掉，别留空列表 |
+| 4 | `collision_monitor: Error while getting parameters: parameter 'observation_sources' is not initialized`，bringup 中止 | `collision_monitor` 是 **Jazzy 新无条件启动**的节点，书里没有它的配置段 | 补上官方默认的 `collision_monitor` 段 |
+| 5 | `docking_server: could not create publisher: ... existing topic name rt/cmd_vel with incompatible type ... Twist_` → `Lifecycle node docking_server does not have error state implemented` | `docking_server` 同样是 Jazzy 新启动的；它要用 `Twist` 建 `cmd_vel` 发布者，而该话题已经是 `TwistStamped` | 补 `docking_server` 段并开 `enable_stamped_cmd_vel` |
+| 6 | `docking_server: Charging dock plugins not given!` | 补了上一条但没给插件 | 补 `dock_plugins` + `simple_charging_dock`（取自官方默认） |
+| 7 | 控制器只收 `TwistStamped`，Nav2 默认发 `Twist` → 车不动 | Jazzy `diff_drive_controller` 只接受 stamped | `enable_stamped_cmd_vel: True` 要加在 **5 处**：`controller_server`、`behavior_server`、`velocity_smoother`、`collision_monitor`、`docking_server` |
+| 8 | — | 书上是单数 `progress_checker_plugin` | 改成 Jazzy 的复数 `progress_checker_plugins` |
+
+`enable_stamped_cmd_vel` 是否存在，用二进制字符串确认过：
+`controller_server` / `velocity_smoother` / `collision_monitor` / `opennav_docking` /
+`nav2_spin_behavior` / `nav2_back_up_behavior` / `nav2_drive_on_heading_behavior` /
+`nav2_assisted_teleop_behavior` / `nav2_wait_behavior` 都有。
+
+### Nav2 的速度链（改参数前必须知道）
+
+```
+controller_server ─┐
+                   ├─ cmd_vel（启动时 remap 成 cmd_vel_nav）─┐
+behavior_server  ──┘                                        │
+                                                            ▼
+                                              velocity_smoother
+                                                            │
+                                                   cmd_vel_smoothed
+                                                            │
+                                                            ▼
+                                                 collision_monitor
+                                                            │
+                                                       cmd_vel  ← 机器人实际收
+docking_server ───────────────────────────────────────────────┘（对接时才发）
+```
+
+所以 `/cmd_vel` 的**发布者不是 controller_server**，而是 `collision_monitor`
+（`ros2 topic info /cmd_vel -v` 可以验证）。调试「车不动」时要从这条链的**末端**
+往回查。
+
+### 巡逻案例的适配（只动了 launch，没动教材的 .py）
+
+| 适配 | 原因 |
+| --- | --- |
+| remap `/camera_sensor/image_raw` → `/camera/image` | 前者是 Gazebo classic 相机插件的话题名，我们 gz 桥出来的是后者 |
+| 两个节点都注入 `use_sim_time: true` | 书上没设；仿真里不给 true，`BasicNavigator` 走系统时钟，等导航激活/超时都会异常 |
+| `image_save_path` 固定到 `/workspace/my-slam/patrol_images/` 并 `mkdir -p` | 书上留空，`cv2.imwrite` 会写进进程当前目录；且**目录不存在时它只返回 False 不抛错，会静默丢图** |
+| `speaker.py` 做「优雅降级」 | 本机没有 `espeak-ng` 也没有音频设备。改为：`import espeakng` 失败时只打日志，**服务名/类型/返回值都不变**。以后装了引擎自动生效，不用改代码 |
+
+另外 `patrol_node.speach_text()` 里是 `while not wait_for_service(...)`，
+**语音服务不在线会死等**，所以 `speaker` 必须跟着一起起（`autopatrol.launch.py` 已包含）。
+
+### 怎么跑（Nav2 + 巡逻）
+
+```bash
+# 终端 1：仿真
+cd /home/my/workspace/slam/my-slam && ./sim.sh --headless
+
+# 终端 2：Nav2（无头；要看 rviz 去掉 rviz:=false）
+./shell.sh -c 'ros2 launch fishbot_navigation2 navigation2.launch.py rviz:=false'
+
+# 终端 3：巡逻（拍照 + 语音服务）
+./shell.sh -c 'ros2 launch autopatrol_robot autopatrol.launch.py'
+
+# 停止（只停 Nav2 + 巡逻，保留仿真）
+./stop-nav2.sh
+```
+
+> `./stop-nav2.sh` 存在的原因见「踩坑记录」：直接写 `pkill -f "navigation2.launch.py"`
+> 有自杀风险。该脚本把 pkill 模式放进容器内的 `tools/stop-nav2-patrol.sh` 里规避。
+
+### 实测数据（2026-10-01，aarch64 / Jazzy）
+
+- Nav2 全部 lifecycle 节点 `active`，`ros2 action list` 有 `/navigate_to_pose`、`/follow_waypoints`
+- 单点导航：目标 `map(1.0, 0.0)`，真值终点 `(0.849, −0.038)` → 误差 **0.156 m**（阈值 0.25 m），朝向误差 2.7°
+- 巡逻 5 个点**全部成功**，到位误差均 ≤ 0.24 m：
+
+| 目标点 | 真值到位 | 偏差 |
+| --- | --- | --- |
+| (0.0, 0.0) | (0.00, 0.00) | ~0 |
+| (1.0, 2.0) | (0.89, 1.82) | 0.21 m |
+| (−4.5, 1.5) | (−4.69, 1.44) | 0.20 m |
+| (−8.0, −5.0) | (−7.80, −5.05) | 0.21 m |
+| (1.0, −5.0) | (1.21, −4.88) | 0.24 m |
+
+拍照落盘在 `my-slam/patrol_images/`，文件名按到位坐标生成（如 `image_-4.69_1.44.png`）。
+
+### 第 7 章的示例节点：逐个实测过（不是只「编译通过」）
+
+| 节点 | 目标 | 真值终点 | 结果 |
+| --- | --- | --- | --- |
+| `fishbot_application init_robot_pose` | 设初始位姿 (0,0,0) | — | ✅ AMCL 随即开始发 `map→odom` |
+| `fishbot_application nav_to_pose` | map(1,1) | (1.24, 1.30) | ✅ SUCCEEDED |
+| `fishbot_application waypoint_follower` | (0,0)→(2,0)→(2,2) | (2.17, 1.88) | ✅ SUCCEEDED |
+| `fishbot_application get_robot_pose` | 只读 TF 位姿 | — | ✅ 正常打印（顺带验证了 `tf_transformations` 可用） |
+| `fishbot_application_cpp nav2pose` | map(2,2) | (2.27, 1.97) | ✅「处理成功」 |
+| `autopatrol_robot patrol_node` + `speaker` | 5 个巡逻点 | 见上表 | ✅ 5/5 成功 |
+
+这些例子都要 `use_sim_time`，例如：
+
+```bash
+./shell.sh -c 'ros2 run fishbot_application nav_to_pose --ros-args -p use_sim_time:=true'
+```
+
+**入口注册**：原书 `fishbot_application/setup.py` 只注册了 `init_robot_pose`，
+另外 3 个例子用 `ros2 run` 根本找不到（书里 README 也没给运行命令，属于漏注册）。
+本仓库把 4 个都注册上了。
+
+**`nav2pose.cpp` 的一个隐患（暂按原样保留）**：它设置目标点时**没有设
+`orientation.w`**，实际发出去的四元数是 (0,0,0,0)，是非法旋转。实测仍能到达
+(2,2)，是因为 `xy_goal_tolerance` / `yaw_goal_tolerance = 0.25` 把问题兜住了
+（终点朝向 0.239 rad，刚好卡在容差边缘）。一旦把容差收紧就会暴露。教材代码
+暂不改，只记录。
+
+**关于定位精度**：上面几次的「真值终点 vs 目标点」误差在 0.16~0.38 m 之间，
+和 AMCL 的收敛程度、地图栅格精度（0.05 m）都有关系，不是导航链路的问题。
+要复核请用 `tools/set_initial_pose.py --from-gz` 先对齐真值再发目标点。
+
+### 第 7 章还剩什么（诚实清单）
+
+| 项 | 状态 |
+| --- | --- |
+| 定位/导航/巡逻全链路 | ✅ 已实测 |
+| 教材 5 个包搬入 | ✅ 已实测 |
+| `fishbot_description` 两处修正 | ✅ 已实测（轮距带了 A/B 证据） |
+| 语音发声 | ⚠️ 只打日志（本机无 `espeak-ng`、无音频设备，属于环境限制，不是遗漏） |
+| rviz2 界面 | ⚠️ 全程无头验证，**没有目视检查过 GUI** |
+| git 提交 | ⚠️ 改动都还没提交 |
+
+
+### 一个值得知道的现象：里程计会漂移
+
+`fishbot_ros2_controller.yaml` 里 `open_loop: true`（书上的设置）。它的含义是
+**里程计按「指令速度」积分，不看轮子实际转了多少**。仿真里原地转向时轮子会和
+地面打滑，这部分打滑里程计完全看不到。实测巡逻一圈后：
+
+```
+/odom   (3.58, 6.16)  yaw ≈ −168°
+真值    (4.57, −1.17) yaw ≈  154°
+```
+
+差了 7 m / 38°。**这不是 bug**，真机也一样 —— 这正是必须要 AMCL/建图的原因。
+本项目里 AMCL 把它纠正回来了，所以导航到位误差仍只有 0.2 m。
+想直观感受这一点，可以在开了 Nav2 之后对比 `tf2_echo map base_footprint`
+（已纠正）和 `ros2 topic echo /odom`（未纠正）。
+
+### 本轮新增的工具
+
+| 工具 | 用途 |
+| --- | --- |
+| `tools/verify_wheel_separation.py` | 用 Gazebo 真值验证轮距配置对不对 |
+| `tools/probe_wheel_speed.py` | 由轮速反推控制器**实际**下发的参数值（判定「参数是否真的生效」） |
+| `tools/set_initial_pose.py` | 设 AMCL 初始位姿；`--from-gz` 直接对齐真值 |
+| `tools/check_map_point.py` | 查地图上某点是否可走（下目标点前先确认，避免误判导航失败） |
+| `tools/stop-nav2-patrol.sh` / `stop-nav2.sh` | 安全停止 Nav2 + 巡逻 |
+| `stop-nav2.sh` | 上面脚本的宿主机入口 |
+
+### 回归清单（每次移植完都跑一遍）
+
+| 检查 | 期望值 | 命令 |
+| --- | --- | --- |
+| 传感器内容自洽 | `exit=0` | `./shell.sh -c 'python3 /workspace/my-slam/tools/check_sensor_msgs.py; echo exit=$?'` |
+| 无自激桥 | `0` | `grep -c "Creating ROS->GZ Bridge" 启动日志` |
+| 各话题发布者唯一 | 都是 `1` | `./shell.sh -c 'ros2 topic info /scan \| grep "Publisher count"'` |
+| `/scan` 频率 | ~10 Hz | `./shell.sh -c 'timeout 15 ros2 topic hz /scan'` |
+| `/imu` 频率 | ~100 Hz | `./shell.sh -c 'timeout 8 ros2 topic hz /imu'` |
+| 遥控仍可用 | `/odom` 有变化 | `./teleop.sh --forward`，然后看 `/odom` |
+| `/cmd_vel` 类型 | `TwistStamped` | `./shell.sh -c 'ros2 topic info /cmd_vel'` |
+
+### 踩坑记录
+
+**1. `pkill -f` 会杀掉自己（踩过两次）。**
+`docker compose exec ... bash -lc 'pkill -f "navigation2.launch.p[y]"; ros2 launch ... navigation2.launch.py'`
+—— 模式 `navigation2.launch.p[y]` 能匹配到**同一条命令行后半段**的字面量，于是
+pkill 把自己的 shell 也杀了，表现为「命令什么都没输出就退出了」。
+之前的 `pkill "ruby.*gz"` 同理。
+**解法**：把 pkill 模式放进脚本文件（`tools/stop-nav2-patrol.sh`），
+杀进程那条命令行里只出现脚本路径，不可能自匹配。
+
+**2. `ros2 topic hz` 别接 `head`。**
+`timeout 12 ros2 topic hz /scan | head -1` 会因为管道提前关闭而输出
+`topic [/scan] does not appear to be published yet`，看起来像话题挂了，
+其实 `/scan` 好好的（`ros2 topic info /scan` 显示 Publisher count: 1，实测 9.99 Hz）。
+要么不接 `head`，要么用 `ros2 topic echo --once` 验证。
+
+**3. 容器里默认用户是 `nvidia` 不是 root。**
+装系统包要 `docker compose exec -u root ...`（走 docker，不用 sudo，也不会弹密码）。
+
+**4. `packages.ros.org` 极慢。**
+实测本机 ROS 索引 2.0 MB / 140 s（14 KB/s），而 `mirrors.ustc.edu.cn` 约 5.8 MB/s
+（快约 400 倍）；Ubuntu ports 官方源也慢。`Dockerfile` 里新增的依赖层默认走国内
+镜像，可用 `--build-arg APT_USE_CN_MIRROR=0` 切回官方源。
+
 ## 启动
 
 ```bash
