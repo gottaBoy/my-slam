@@ -329,6 +329,33 @@ cd /home/my/workspace/slam/my-slam && ./sim.sh --headless
 和 AMCL 的收敛程度、地图栅格精度（0.05 m）都有关系，不是导航链路的问题。
 要复核请用 `tools/set_initial_pose.py --from-gz` 先对齐真值再发目标点。
 
+**为什么有时候会「绕远路」（不是 bug）**：实测发目标 `(2.17,1.88) → (-4.5,1.5)`，
+直线只有 **6.68 m**，但 Nav2 报的 `distance_remaining` 是 **18.17 m**。
+用 `tools/map_clearance.py` 沿直线逐点算「到最近墙的距离」后原因清楚了：
+
+```
+采样点            占用值   到最近墙(m)   在膨胀区内
+(-0.69, 1.72)     254        0.47        是
+(-1.64, 1.66)     254        0.35        是
+(-2.12, 1.64)     205        0.05        是   <- 关键：未知区域，且贴墙 5cm
+```
+
+直线在 `x≈-2.12` 处离墙只有 **0.05 m**（那格还是未知区域 205），而机器人半径
+0.22 m、`inflation_radius` 0.55 m —— 这个缝根本过不去，规划器只能绕。
+再加上 navfn 默认 `use_astar: false`，它是**按代价最小**而不是距离最短找路，
+所以给出 18 m 的方案是正常行为。
+
+要让它更愿意走直线，可以（改前先确认车真能过那条缝）：
+- 调小 `inflation_radius`（0.55 → 0.3 左右）或 `cost_scaling_factor`
+- 或把 `planner_server` 里 `use_astar` 改成 `true`
+
+排查手法：
+
+```bash
+python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
+```
+
+
 ### 第 7 章还剩什么（诚实清单）
 
 | 项 | 状态 |
