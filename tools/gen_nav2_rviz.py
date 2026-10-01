@@ -14,7 +14,7 @@ LaserScan / Global Planner / Controller / MarkerArray）原样保留。
 
 用法（容器内，需要 ROS 环境）：
   python3 tools/gen_nav2_rviz.py
-生成结果：src/navigation/fishbot_navigation2/rviz/fishbot_nav2.rviz
+生成结果：src/navigation/mybot_navigation2/rviz/mybot_nav2.rviz
 """
 
 import os
@@ -35,7 +35,7 @@ def _find_in_src(rel_path):
 
 
 DEFAULT_SRC = '/opt/ros/jazzy/share/nav2_bringup/rviz/nav2_default_view.rviz'
-OUT = _find_in_src('fishbot_navigation2/rviz/fishbot_nav2.rviz')
+OUT = _find_in_src('mybot_navigation2/rviz/mybot_nav2.rviz')
 
 DROP = {'Bumper Hit', 'Realsense'}
 
@@ -98,7 +98,7 @@ def make_camera_group():
             },
         ],
         'Enabled': False,   # 默认折叠，需要时自己勾上
-        'Name': 'fishbot Camera',
+        'Name': 'mybot Camera',
     }
 
 
@@ -141,7 +141,7 @@ def main():
             names.append('  └ ' + sub.get('Name', '?'))
     print(f'已生成 {os.path.normpath(OUT)}')
     print(f'  移除: {", ".join(dropped) or "（无）"}')
-    print(f'  加入: fishbot Camera -> /camera/image, /camera/points')
+    print(f'  加入: mybot Camera -> /camera/image, /camera/points')
     print(f'  固定坐标系: '
           f'{vm.get("Global Options", {}).get("Fixed Frame", "?")}')
     print('  其余显示项:')

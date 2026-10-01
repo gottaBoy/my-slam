@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo Sim (gz sim / ros_gz) 版本的 ros2_control 配置。
+
+  对应书上的 classic 版本 urdf/mybot/mybot.ros2_control.xacro，关节与
+  接口定义完全一致，只改了插件名：
+
+    gazebo_ros2_control/GazeboSystem  ->  gz_ros2_control/GazeboSimSystem
+    libgazebo_ros2_control.so         ->  libgz_ros2_control-system.so
+
+  另外修正了 cmd_vel 的重映射：书上是
+    /mybot_diff_drive_controller/cmd_vel_unstamped:=/cmd_vel
+  但 Jazzy 的 diff_drive_controller 已经不再订阅 cmd_vel_unstamped
+  （实测 `strings libdiff_drive_controller.so` 只有 ~/cmd_vel、~/cmd_vel_out、
+  ~/odom，且 use_stamped_vel 参数已移除），所以这里改成 cmd_vel。
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="mybot_gz_ros2_control">
+        <ros2_control name="MyBotGazeboSimSystem" type="system">
+            <hardware>
+                <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+            </hardware>
+            <joint name="left_wheel_joint">
+                <command_interface name="velocity">
+                    <param name="min">-1</param>
+                    <param name="max">1</param>
+                </command_interface>
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+                <state_interface name="effort" />
+            </joint>
+            <joint name="right_wheel_joint">
+                <command_interface name="velocity">
+                    <param name="min">-1</param>
+                    <param name="max">1</param>
+                </command_interface>
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+                <state_interface name="effort" />
+            </joint>
+        </ros2_control>
+
+        <gazebo>
+            <plugin filename="libgz_ros2_control-system.so"
+                    name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+                <parameters>$(find mybot_description)/config/mybot_ros2_controller.yaml</parameters>
+                <ros>
+                    <remapping>/mybot_diff_drive_controller/cmd_vel:=/cmd_vel</remapping>
+                    <remapping>/mybot_diff_drive_controller/odom:=/odom</remapping>
+                </ros>
+            </plugin>
+        </gazebo>
+    </xacro:macro>
+</robot>

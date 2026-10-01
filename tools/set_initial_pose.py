@@ -43,7 +43,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--from-gz', action='store_true',
                     help='用 Gazebo 真值作为初始位姿')
-    ap.add_argument('--model', default='fishbot')
+    ap.add_argument('--model', default='mybot')
     ap.add_argument('--x', type=float, default=0.0)
     ap.add_argument('--y', type=float, default=0.0)
     ap.add_argument('--yaw', type=float, default=0.0)

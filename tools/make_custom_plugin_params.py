@@ -10,7 +10,7 @@
 
 用法（容器内）：
   python3 tools/make_custom_plugin_params.py /tmp/nav2_custom_test.yaml
-  ros2 launch fishbot_navigation2 navigation2.launch.py \
+  ros2 launch mybot_navigation2 navigation2.launch.py \
       rviz:=false params_file:=/tmp/nav2_custom_test.yaml
 """
 
@@ -29,7 +29,7 @@ def _find_in_src(rel_path):
     return os.path.join(root, rel_path)
 
 
-DEFAULT_SRC = _find_in_src('fishbot_navigation2/config/nav2_params.yaml')
+DEFAULT_SRC = _find_in_src('mybot_navigation2/config/nav2_params.yaml')
 
 CONTROLLER_FROM = '      plugin: "dwb_core::DWBLocalPlanner"'
 CONTROLLER_TO = (

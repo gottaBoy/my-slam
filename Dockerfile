@@ -65,7 +65,7 @@ RUN apt-get update \
 # 需要走官方源时： docker compose build --build-arg APT_USE_CN_MIRROR=0
 #
 # ros-jazzy-tf-transformations 被以下代码依赖（chapt7 及本仓库原有 my_tf_pkg）：
-#   autopatrol_robot/patrol_node.py、fishbot_application/get_robot_pose.py、
+#   autopatrol_robot/patrol_node.py、mybot_application/get_robot_pose.py、
 #   my_tf_pkg/{static_tf_broadcaster,dynamic_tf_broadcaster,tf_listener}.py
 #
 # ros-jazzy-example-interfaces 被第 10 章的 learn_executor_cpp 依赖

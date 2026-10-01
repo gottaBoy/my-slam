@@ -2,8 +2,8 @@
 # 交互式进入容器。
 #
 # 进去以后 overlay 已经 source 好了，可以直接用：
-#   ros2 launch fishbot_description gazebo_sim_gz.launch.py
-#   ros2 pkg prefix fishbot_description      # 不再报 Package not found
+#   ros2 launch mybot_description gazebo_sim_gz.launch.py
+#   ros2 pkg prefix mybot_description      # 不再报 Package not found
 # 想看内部到底 source 了哪几个 overlay：echo "$SLAM_OVERLAY_SETUP"
 #
 # 非交互用法（不占终端）：./shell.sh -c 'ros2 topic list'

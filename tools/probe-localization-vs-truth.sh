@@ -26,7 +26,7 @@ GZ_F=/tmp/probe_gz.txt
 : > "$AMCL_F"
 : > "$GZ_F"
 
-echo "起点 gz 真值: $(gz model -m fishbot -p 2>/dev/null | tail -2 | tr '\n' ' ')"
+echo "起点 gz 真值: $(gz model -m mybot -p 2>/dev/null | tail -2 | tr '\n' ' ')"
 
 # 后台：持续记录 AMCL 的位姿。ros2 topic echo 输出形如
 #     x: 1.23
@@ -41,7 +41,7 @@ timeout "$SECONDS_TO_RUN" ros2 topic echo /amcl_pose --field pose.pose.position 
 timeout "$SECONDS_TO_RUN" bash -c '
   while :; do
     printf "%s " "$(date +%s)"
-    gz model -m fishbot -p 2>/dev/null | tail -2 | tr "\n" " "
+    gz model -m mybot -p 2>/dev/null | tail -2 | tr "\n" " "
     echo
     sleep 2
   done' > "$GZ_F" 2>&1 &

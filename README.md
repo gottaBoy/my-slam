@@ -41,16 +41,16 @@ Pangolin、g2o 未自动补装，也未修改其他项目自带的依赖。
 ```text
 src/
 ├─ robot/         机器人本体：描述、仿真、启动、传感器桥
-│   fishbot_description        URDF/Xacro 模型、Gazebo 世界、仿真启动
-│   fishbot_bringup            启动：真机 bringup + 仿真版一键启动
+│   mybot_description        URDF/Xacro 模型、Gazebo 世界、仿真启动
+│   mybot_bringup            启动：真机 bringup + 仿真版一键启动
 │   gz_sensor_bridge           IMU + 相机话题的桥（可选）
 ├─ navigation/    Nav2 配置与自研插件
-│   fishbot_navigation2        Nav2 参数 + 预制地图 + rviz 配置
+│   mybot_navigation2        Nav2 参数 + 预制地图 + rviz 配置
 │   nav2_custom_planner        Nav2 自定义全局规划器插件
 │   nav2_custom_controller     Nav2 自定义控制器插件
 ├─ app/           应用层
-│   fishbot_application        Python 应用示例（4 个节点）
-│   fishbot_application_cpp    C++ 导航示例
+│   mybot_application        Python 应用示例（4 个节点）
+│   mybot_application_cpp    C++ 导航示例
 │   autopatrol_interfaces      巡检应用的服务接口
 │   autopatrol_robot           巡检主循环 + 语音播报
 └─ learning/      学习型示例（12 个，与机器人主线无耦合）
@@ -203,29 +203,31 @@ gz 的激光本来就发布在这两个话题上；如果桥再建一条 ROS→G
 | 3 | **纯新增的**：整包复制进 `my-slam/src/`，**排除同名包** | `colcon build` 通过，包名无重复 |
 | 4 | 依赖：先编译看真实报错，缺什么装什么 | 缺的依赖同时写进 `Dockerfile` |
 | 5 | 适配（多数是 Humble → Jazzy 的差异） | 见下面「Jazzy 参数坑」 |
-| 6 | 端到端跑通 | 用**真值**（`gz model -m fishbot -p`）核对，不看日志自述 |
+| 6 | 端到端跑通 | 用**真值**（`gz model -m mybot -p`）核对，不看日志自述 |
 | 7 | 回归测试 | 见「回归清单」 |
 | 8 | 写文档 | 本节 |
 
-**原则**：同名包绝不整包覆盖 —— `fishbot_description` 是本仓库的超集，
-覆盖会把 gz 版全弄丢，`./sim.sh` 直接报废。
+**原则**：
+1. **绝不整包覆盖已有的包** —— `mybot_description` 是本仓库的超集（含 Gazebo Sim 版），
+   被覆盖会把 gz 版全弄丢，`./sim.sh` 直接报废。
+2. **本仓库的包统一用 `mybot_*` 前缀**，一眼能看出哪些是自己维护的。
 
 ### 导航与巡检应用：搬了什么
 
-复制进 `my-slam/src/` 的 5 个包（`fishbot_description` **不复制**）：
+收进 `my-slam/src/` 的 5 个包（`mybot_description` **不在此列**，它是本仓库自己的）：
 
 | 包 | 内容 |
 | --- | --- |
-| `fishbot_navigation2` | Nav2 bringup 配置 + 预制地图 `maps/room.pgm` |
-| `fishbot_application` | Python 例子（设初始位姿 / 查位姿 / 去一点 / 走路点） |
-| `fishbot_application_cpp` | C++ 版导航客户端 |
+| `mybot_navigation2` | Nav2 bringup 配置 + 预制地图 `maps/room.pgm` |
+| `mybot_application` | Python 例子（设初始位姿 / 查位姿 / 去一点 / 走路点） |
+| `mybot_application_cpp` | C++ 版导航客户端 |
 | `autopatrol_interfaces` | 自定义服务 `SpeachText`（书上拼写如此） |
 | `autopatrol_robot` | 巡逻主循环 + 语音节点 + 配置 |
 
 ### 改了哪些已有代码（每条都有实测）
 
-这批代码顺手改过 `fishbot_description` 两个文件，而本仓库原有的基线更早，所以
-这两处需要单独判断。
+这批代码顺手改过 `mybot_description` 两个文件，而本仓库原有的基线更早，
+所以这两处需要单独判断。
 
 | 改动 | 采纳? | 依据 |
 | --- | --- | --- |
@@ -242,7 +244,7 @@ gz 的激光本来就发布在这两个话题上；如果桥再建一条 ROS→G
 | `0.17` | 0.1700 | 1.2119 rad | 1.2114（−0.04%） | **1.0305（−14.96%）** ❌ |
 | `0.20` | 0.2000 | 1.2116 rad | 1.2060（−0.47%） | **1.2066（−0.41%）** ✅ |
 
-**注意**：`ros2 param set /fishbot_diff_drive_controller wheel_separation ...`
+**注意**：`ros2 param set /mybot_diff_drive_controller wheel_separation ...`
 **看起来成功，实际不生效**。实测把参数设成 0.10 / 0.40，由轮速反推的下发值都是
 0.2000（不改）。要改必须重启控制器让它重新加载参数文件。
 
@@ -307,7 +309,7 @@ docking_server ─────────────────────�
 cd /home/my/workspace/slam/my-slam && ./sim.sh --headless
 
 # 终端 2：Nav2（无头；要看 rviz 去掉 rviz:=false）
-./shell.sh -c 'ros2 launch fishbot_navigation2 navigation2.launch.py rviz:=false'
+./shell.sh -c 'ros2 launch mybot_navigation2 navigation2.launch.py rviz:=false'
 
 # 终端 3：巡逻（拍照 + 语音服务）
 ./shell.sh -c 'ros2 launch autopatrol_robot autopatrol.launch.py'
@@ -321,7 +323,7 @@ cd /home/my/workspace/slam/my-slam && ./sim.sh --headless
 
 **rviz 用的是本仓库裁剪过的配置**，不是 `nav2_bringup` 自带那份：
 
-`fishbot_navigation2/rviz/fishbot_nav2.rviz`
+`mybot_navigation2/rviz/mybot_nav2.rviz`
 
 官方默认那份（`nav2_default_view.rviz`）是给 TurtleBot3 配的，里面有两项订阅的是
 我们根本没有的话题：
@@ -332,7 +334,7 @@ cd /home/my/workspace/slam/my-slam && ./sim.sh --headless
 | `Realsense` 组 | `/intel_realsense_r200_depth/*` | TB3 的深度相机，我们没有 |
 
 挂着不会报错，但会让人以为是哪里没配好。裁剪版把这两项去掉，换成一个默认折叠的
-`fishbot Camera` 组（`/camera/image` + `/camera/points`），其余显示项
+`mybot Camera` 组（`/camera/image` + `/camera/points`），其余显示项
 （Map / 全局与局部代价地图 / 路径 / 粒子云 / TF / RobotModel / LaserScan /
 Global Planner / Controller / MarkerArray）原样保留。
 
@@ -368,21 +370,21 @@ Global Planner / Controller / MarkerArray）原样保留。
 
 | 节点 | 目标 | 真值终点 | 结果 |
 | --- | --- | --- | --- |
-| `fishbot_application init_robot_pose` | 设初始位姿 (0,0,0) | — | ✅ AMCL 随即开始发 `map→odom` |
-| `fishbot_application nav_to_pose` | map(1,1) | (1.24, 1.30) | ✅ SUCCEEDED |
-| `fishbot_application waypoint_follower` | (0,0)→(2,0)→(2,2) | (2.17, 1.88) | ✅ SUCCEEDED |
-| `fishbot_application get_robot_pose` | 只读 TF 位姿 | — | ✅ 正常打印（顺带验证了 `tf_transformations` 可用） |
-| `fishbot_application_cpp nav2pose` | map(2,2) | (2.27, 1.97) / 修orientation后 (2.22, 1.90) | ✅「处理成功」（修的是非法四元数，精度取决于容差，见下） |
+| `mybot_application init_robot_pose` | 设初始位姿 (0,0,0) | — | ✅ AMCL 随即开始发 `map→odom` |
+| `mybot_application nav_to_pose` | map(1,1) | (1.24, 1.30) | ✅ SUCCEEDED |
+| `mybot_application waypoint_follower` | (0,0)→(2,0)→(2,2) | (2.17, 1.88) | ✅ SUCCEEDED |
+| `mybot_application get_robot_pose` | 只读 TF 位姿 | — | ✅ 正常打印（顺带验证了 `tf_transformations` 可用） |
+| `mybot_application_cpp nav2pose` | map(2,2) | (2.27, 1.97) / 修orientation后 (2.22, 1.90) | ✅「处理成功」（修的是非法四元数，精度取决于容差，见下） |
 | `autopatrol_robot patrol_node` + `speaker` | 5 个巡逻点 | 见上表 | ✅ 5/5 成功 |
 
 这些例子都要 `use_sim_time`，例如：
 
 ```bash
-./shell.sh -c 'ros2 run fishbot_application nav_to_pose --ros-args -p use_sim_time:=true'
+./shell.sh -c 'ros2 run mybot_application nav_to_pose --ros-args -p use_sim_time:=true'
 ```
 
-**入口注册**：原书 `fishbot_application/setup.py` 只注册了 `init_robot_pose`，
-另外 3 个例子用 `ros2 run` 根本找不到（书里 README 也没给运行命令，属于漏注册）。
+**入口注册**：`mybot_application/setup.py` 原本只注册了 `init_robot_pose`，
+另外 3 个例子用 `ros2 run` 根本找不到（属于漏注册）。
 本仓库把 4 个都注册上了。
 
 **`nav2pose.cpp` 的非法四元数（已修）**：它设置目标点时**没有设
@@ -494,7 +496,7 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | --- | --- |
 | 定位/导航/巡逻全链路 | ✅ 已实测 |
 | 5 个包搬入 | ✅ 已实测 |
-| `fishbot_description` 两处修正 | ✅ 已实测（轮距带了 A/B 证据） |
+| `mybot_description` 两处修正 | ✅ 已实测（轮距带了 A/B 证据） |
 | 语音发声 | ⚠️ 只打日志（本机无 `espeak-ng`、无音频设备，属于环境限制，不是遗漏） |
 | rviz2 界面 | ⚠️ 全程无头验证，**没有目视检查过 GUI** |
 | git 提交 | ⚠️ 改动都还没提交 |
@@ -502,7 +504,7 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 
 ### 一个值得知道的现象：里程计会漂移
 
-`fishbot_ros2_controller.yaml` 里 `open_loop: true`（书上的设置）。它的含义是
+`mybot_ros2_controller.yaml` 里 `open_loop: true`（书上的设置）。它的含义是
 **里程计按「指令速度」积分，不看轮子实际转了多少**。仿真里原地转向时轮子会和
 地面打滑，这部分打滑里程计完全看不到。实测巡逻一圈后：
 
@@ -621,7 +623,7 @@ PGM 的**首行对应 y 最大值**，所以 `row = h - 1 - int((y - oy)/res)`�
 ### 自定义规划器 / 控制器插件
 
 搬入两个插件包：`nav2_custom_planner`、`nav2_custom_controller`
-（这批代码里的 `fishbot_description` 仍是旧值 —— 轮距 0.17、协方差全 0、雷达
+（这批代码里的 `mybot_description` 仍是旧值 —— 轮距 0.17、协方差全 0、雷达
 5 Hz；轮距此前已按 URDF 修正过，这里又回退了，我们按 URDF 证据保持 0.20 不变）。
 
 #### 修了 4 处 Jazzy 不兼容（都带原始报错）
@@ -657,14 +659,14 @@ PGM 的**首行对应 y 最大值**，所以 `row = h - 1 - int((y - oy)/res)`�
 # 造一份临时参数：把两个 plugin 行换成自研插件并补上它们的参数
 ./shell.sh -c 'python3 /workspace/my-slam/tools/make_custom_plugin_params.py /tmp/nav2_custom_test.yaml'
 # 用它启动
-./shell.sh -c 'ros2 launch fishbot_navigation2 navigation2.launch.py rviz:=false params_file:=/tmp/nav2_custom_test.yaml'
+./shell.sh -c 'ros2 launch mybot_navigation2 navigation2.launch.py rviz:=false params_file:=/tmp/nav2_custom_test.yaml'
 ```
 
 ### bringup（真机启动 + 仿真版一键启动）
 
 #### 先说结论：这份启动文件是**真机专用**的
 
-`fishbot_bringup` 的 `launch/bringup.launch.py` 启动的是：
+`mybot_bringup` 的 `launch/bringup.launch.py` 启动的是：
 
 | 节点 | 作用 | 我们有没有 |
 | --- | --- | --- |
@@ -693,21 +695,21 @@ PGM 的**首行对应 y 最大值**，所以 `row = h - 1 - int((y - oy)/res)`�
 
 | 项 | 为什么不搬 |
 | --- | --- |
-| 这批里的 `fishbot_description` | 同名包，而且里面只有一个单体 `urdf/fishbot.urdf`，是本仓库 xacro 版的**子集** |
+| 单文件版 `mybot_description` | 里面只有一个单体 `urdf/mybot.urdf`，是本仓库 xacro 版的**子集** |
 | 这批里的 `maps/room.pgm` | 实测 **152×103 px**（7.6×5.15 m，origin `-3.9,-1.82`），而仿真用的那份是 **376×222 px**（18.8×11.1 m，origin `-10.4,-6.53`）——**完全不同的区域**，是作者真机所在的小场地，换上去仿真里的目标点全对不上。两份的 `nav2_params.yaml` 倒是**逐字节相同**。 |
-| `odom2tf` 在仿真里启动 | 仿真里 `odom→base_footprint` 这条 TF 已经由 `fishbot_diff_drive_controller`（`enable_odom_tf: true`）在发，再让 `odom2tf` 发一遍同一条变换会出现两个发布者互相打架。真机上里程计不发 TF，才需要它。 |
+| `odom2tf` 在仿真里启动 | 仿真里 `odom→base_footprint` 这条 TF 已经由 `mybot_diff_drive_controller`（`enable_odom_tf: true`）在发，再让 `odom2tf` 发一遍同一条变换会出现两个发布者互相打架。真机上里程计不发 TF，才需要它。 |
 
 #### 补了一个「仿真版一键启动」
 
 这部分的核心价值是**一条命令拉起整个机器人**。真机版在这里跑不了，所以加了
-`fishbot_bringup/launch/bringup_sim.launch.py`：一条命令起「Gazebo 仿真 +
+`mybot_bringup/launch/bringup_sim.launch.py`：一条命令起「Gazebo 仿真 +
 Nav2 + 设置初始位姿」，把原来要开三个终端的流程收成一个。
 
 ```bash
 # 容器内
-ros2 launch fishbot_bringup bringup_sim.launch.py
-ros2 launch fishbot_bringup bringup_sim.launch.py headless:=false rviz:=true
-ros2 launch fishbot_bringup bringup_sim.launch.py initial_pose:=false
+ros2 launch mybot_bringup bringup_sim.launch.py
+ros2 launch mybot_bringup bringup_sim.launch.py headless:=false rviz:=true
+ros2 launch mybot_bringup bringup_sim.launch.py initial_pose:=false
 ```
 
 参数：`headless`(默认 true)、`rviz`(false)、`initial_pose`(true)、
@@ -735,7 +737,7 @@ ros2 launch fishbot_bringup bringup_sim.launch.py initial_pose:=false
 launch）必须再 `colcon build` 一次，否则 install 目录里没有它，运行时报：
 
 ```
-file 'bringup_sim.launch.py' was not found in the share directory of package 'fishbot_bringup'
+file 'bringup_sim.launch.py' was not found in the share directory of package 'mybot_bringup'
 ```
 
 ### 学习型示例包
@@ -833,8 +835,8 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 | --- | --- |
 | `./start.sh` / `./stop.sh` | 启动 / 停止容器 |
 | `./shell.sh` | 交互式进入容器（推荐用这个） |
-| `./sim.sh` | 一键启动 fishbot 的 Gazebo Sim 仿真 |
-| `./teleop.sh` | 键盘遥控 fishbot |
+| `./sim.sh` | 一键启动 mybot 的 Gazebo Sim 仿真 |
+| `./teleop.sh` | 键盘遥控 mybot |
 | `./rviz2.sh` / `./rqt.sh` | 图形化调试 |
 | `./gazebo.sh` | 只开一个空的 Gazebo GUI（手动摆模型用） |
 | `./gpu-check.sh` | 排查 GPU / 渲染问题（`failed to create drawable`） |
@@ -843,7 +845,7 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 
 ```bash
 ./shell.sh -c 'ros2 topic list'
-./shell.sh -c 'ros2 pkg prefix fishbot_description'
+./shell.sh -c 'ros2 pkg prefix mybot_description'
 ```
 
 `./docker_run.sh`、`./docker_into.sh`、`./docker_stop.sh` 是早期的 Apollo 风格命名，现在只是
@@ -877,7 +879,7 @@ no configuration file provided: not found
 非交互式 bash 因为有 `BASH_ENV=ros-env.sh` 兜底，看起来正常；但交互式 shell（`./shell.sh`）里
 
 ```bash
-ros2 pkg prefix fishbot_description     # -> Package not found
+ros2 pkg prefix mybot_description     # -> Package not found
 ```
 
 现在 `entrypoint.sh` 改成自动发现 overlay（`/workspace/install` → `/workspace/*/install`），
@@ -959,7 +961,7 @@ Gazebo 模型默认下载在容器内的 `/home/nvidia/.gz`，容器一旦重建
 * 只想验证模型能否加载时，先 `./gazebo.sh -s -r <world.sdf>`（`-s` 只起 server，不起 GUI），
   可以完全绕过 drawable 问题。
 
-## fishbot 的 Gazebo Sim 仿真（my-slam 新增，不改教材原文件）
+## mybot 的 Gazebo Sim 仿真（my-slam 新增，不改教材原文件）
 
 书上的 `gazebo_sim.launch.py` 基于 **Gazebo classic**（`gazebo_ros` /
 `spawn_entity.py`）。ROS 2 Jazzy 已经不再提供 `gazebo_ros`（classic 2025-01 EOL），
@@ -969,7 +971,7 @@ Gazebo 模型默认下载在容器内的 `/home/nvidia/.gz`，容器一旦重建
 cd /workspace/my-slam
 colcon build --symlink-install
 source install/setup.bash
-ros2 launch fishbot_description gazebo_sim_gz.launch.py
+ros2 launch mybot_description gazebo_sim_gz.launch.py
 ```
 
 ### 新增文件
@@ -977,9 +979,9 @@ ros2 launch fishbot_description gazebo_sim_gz.launch.py
 | 文件 | 作用 |
 | --- | --- |
 | `launch/gazebo_sim_gz.launch.py` | 用 `ros_gz_sim` 重写：`gz_sim.launch.py` + `ros_gz_sim create` + `ros_gz_bridge` + `controller_manager spawner` |
-| `urdf/fishbot/fishbot_gz.urdf.xacro` | 总装文件，组件复用教材的，只换最后两个插件 |
-| `urdf/fishbot/plugins/gz_control_plugin.xacro` | `gz_ros2_control/GazeboSimSystem` + `libgz_ros2_control-system.so` |
-| `urdf/fishbot/plugins/gz_sensor_plugin.xacro` | `gpu_lidar` / `imu` / `rgbd_camera` 三个 gz 传感器 |
+| `urdf/mybot/mybot_gz.urdf.xacro` | 总装文件，组件复用教材的，只换最后两个插件 |
+| `urdf/mybot/plugins/gz_control_plugin.xacro` | `gz_ros2_control/GazeboSimSystem` + `libgz_ros2_control-system.so` |
+| `urdf/mybot/plugins/gz_sensor_plugin.xacro` | `gpu_lidar` / `imu` / `rgbd_camera` 三个 gz 传感器 |
 | `world/custom_room_gz.world` | 教材 `custom_room.world` 的副本，加了 4 个系统插件 |
 
 ### 与教材的关键差异
@@ -996,22 +998,22 @@ ros2 launch fishbot_description gazebo_sim_gz.launch.py
    完全不工作。所以 `world/custom_room_gz.world` 里显式声明了这 4 个插件。
 4. **cmd_vel 重映射修正**：教材写的 `cmd_vel_unstamped:=/cmd_vel` 在 Jazzy 上无效，
    Jazzy 的 `diff_drive_controller` 只订阅 `~/cmd_vel`（`use_stamped_vel` 参数已移除）。
-5. 教材里 `load_fishbot_effort_controller` 定义了却没挂进事件链（死代码）；
+5. `mybot_effort_controller` 定义了却没挂进事件链（死代码）；
    `diff_drive_controller` 用的是 velocity 接口，本移植不加载 effort 控制器。
 
 ### 话题对照
 
 | ROS 话题 | 来源 |
 | --- | --- |
-| `/cmd_vel`（订阅，**类型是 `geometry_msgs/msg/TwistStamped`**） | 重映射到 `/fishbot_diff_drive_controller/cmd_vel` |
+| `/cmd_vel`（订阅，**类型是 `geometry_msgs/msg/TwistStamped`**） | 重映射到 `/mybot_diff_drive_controller/cmd_vel` |
 | `/odom`、`/tf` | `diff_drive_controller`（gz_ros2_control 直接发 ROS 话题，无需桥接） |
-| `/joint_states` | `fishbot_joint_state_broadcaster` |
+| `/joint_states` | `mybot_joint_state_broadcaster` |
 | `/scan`、`/scan/points` | `gpu_lidar`（`laser_link`） |
 | `/imu` | `imu` 传感器（`imu_link`） |
 | `/camera/image`、`/camera/depth_image`、`/camera/camera_info`、`/camera/points` | `rgbd_camera`（`camera_optical_link`） |
 | `/clock` | Gazebo（供 `use_sim_time`） |
 
-### 让 fishbot 动起来
+### 让 mybot 动起来
 
 镜像里**没有装 `teleop_twist_keyboard`**，而且即使装了也不能直接用（它默认发
 `Twist`，而本环境需要 `TwistStamped`）。零安装的驱动方式：
@@ -1220,7 +1222,7 @@ $ ros2 topic hz /cmd_vel        -> 完全没有数据
 | 命令 | 在哪执行 | 说明 |
 | --- | --- | --- |
 | `./teleop.sh` | **宿主机** | 推荐，内部自动 `docker compose exec` 进容器 |
-| `python3 /workspace/my-slam/.../fishbot_teleop.py` | **容器内** | `/workspace/...` 只在容器里存在 |
+| `python3 /workspace/my-slam/.../mybot_teleop.py` | **容器内** | `/workspace/...` 只在容器里存在 |
 
 在宿主机上直接跑 `python3 /workspace/my-slam/...` 会得到
 `can't open file '/workspace/my-slam/...': [Errno 2] No such file or directory`
@@ -1535,10 +1537,10 @@ export QT_QPA_PLATFORM=xcb            # compose 里已设，交互式调试时�
 ./sim.sh
 
 # 等价的手工写法（容器内）
-ros2 launch fishbot_description gazebo_sim_gz.launch.py
+ros2 launch mybot_description gazebo_sim_gz.launch.py
 
 # 只跑 RViz 看模型，不开 Gazebo
-ros2 launch fishbot_description display_robot.launch.py
+ros2 launch mybot_description display_robot.launch.py
 
 # 启动参数
 ./sim.sh --headless              # 只起 server，不渲染
@@ -1566,5 +1568,5 @@ ros2 launch fishbot_description display_robot.launch.py
 容器内的 `ros2 launch` 和 `gz sim` 不会跟着退出，而两者共用 `GZ_PARTITION`，
 互相抢话题的现象非常难查。有残留时会警告，`--clean` 则直接清掉。
 
-详见上文「fishbot 的 Gazebo Sim 仿真」一节。宿主机上对应入口：
+详见上文「mybot 的 Gazebo Sim 仿真」一节。宿主机上对应入口：
 `./gazebo.sh` 起容器、`./shell.sh` 进容器、`./teleop.sh` 键盘遥控。

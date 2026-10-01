@@ -23,9 +23,9 @@ source /workspace/my-slam/install/setup.bash >/dev/null 2>&1
 echo "=== 1. 把车瞬移回起点 (${START_X}, ${START_Y}) ==="
 gz service -s /world/default/set_pose \
   --reqtype gz.msgs.Pose --reptype gz.msgs.Boolean --timeout 3000 \
-  --req "name: \"fishbot\" position: {x: ${START_X}, y: ${START_Y}, z: 0.001}" 2>&1 | tail -2
+  --req "name: \"mybot\" position: {x: ${START_X}, y: ${START_Y}, z: 0.001}" 2>&1 | tail -2
 sleep 3
-echo "   瞬移后真值: $(gz model -m fishbot -p 2>/dev/null | tail -2 | tr '\n' ' ')"
+echo "   瞬移后真值: $(gz model -m mybot -p 2>/dev/null | tail -2 | tr '\n' ' ')"
 
 echo
 echo "=== 2. 按真值重置 AMCL 初始位姿（否则定位和实际对不上）==="
@@ -47,7 +47,7 @@ timeout $((DURATION - 20)) ros2 action send_goal /navigate_to_pose \
   --feedback 2>&1 | grep -E "number_of_recoveries|distance_remaining|Goal finished|error_code" | tail -4
 
 echo
-echo "   结束真值: $(gz model -m fishbot -p 2>/dev/null | tail -2 | tr '\n' ' ')"
+echo "   结束真值: $(gz model -m mybot -p 2>/dev/null | tail -2 | tr '\n' ' ')"
 
 wait $PROBE_PID 2>/dev/null
 cat /tmp/probe_chain.log

@@ -27,7 +27,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 
-CTRL = '/fishbot_diff_drive_controller'
+CTRL = '/mybot_diff_drive_controller'
 
 
 def yaw_from_quat(q):
@@ -108,7 +108,7 @@ class Verifier(Node):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', default='fishbot')
+    ap.add_argument('--model', default='mybot')
     ap.add_argument('--w', type=float, default=0.6, help='角速度 rad/s')
     ap.add_argument('--duration', type=float, default=2.0, help='持续秒数')
     ap.add_argument('--settle', type=float, default=2.0, help='停车后等待秒数')

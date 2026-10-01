@@ -7,7 +7,7 @@
     把 Gazebo Sim 的传感器话题（IMU、RGB-D 相机）转成 ROS 话题的桥节点。
 
     与 ros_gz_bridge 的 parameter_bridge **二选一**：两者实测等价，用 launch 参数
-    sensor_bridge 切换（见 fishbot_description/launch/gazebo_sim_gz.launch.py）。
+    sensor_bridge 切换（见 mybot_description/launch/gazebo_sim_gz.launch.py）。
     本节点不是必需的 —— 早先曾把 parameter_bridge 桥不出这几个话题归因于上游
     缺陷，该结论已撤回（原因未定位、且当前无法复现），详见 README。
   </description>

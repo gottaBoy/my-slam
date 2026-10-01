@@ -19,7 +19,7 @@ set -u
 N="${1:-3}"
 WAIT="${2:-35}"
 LOG_DIR="${LOG_DIR:-/tmp/bridge-repro}"
-LAUNCH_TARGET='ros2 launch fishbot_description gazebo_sim_gz.launch.py headless:=true'
+LAUNCH_TARGET='ros2 launch mybot_description gazebo_sim_gz.launch.py headless:=true'
 
 mkdir -p "${LOG_DIR}"
 
@@ -27,8 +27,8 @@ mkdir -p "${LOG_DIR}"
 {
     echo "=== 实验配置指纹 ==="
     echo "时间: $(date -Is)"
-    echo "launch 文件: $(readlink -f /workspace/my-slam/install/fishbot_description/share/fishbot_description/launch/gazebo_sim_gz.launch.py)"
-    md5sum /workspace/my-slam/install/fishbot_description/share/fishbot_description/launch/gazebo_sim_gz.launch.py
+    echo "launch 文件: $(readlink -f /workspace/my-slam/install/mybot_description/share/mybot_description/launch/gazebo_sim_gz.launch.py)"
+    md5sum /workspace/my-slam/install/mybot_description/share/mybot_description/launch/gazebo_sim_gz.launch.py
     echo "ros_gz_bridge 版本: $(dpkg -query -W -f='${Version}' ros-jazzy-ros-gz-bridge 2>/dev/null)"
     echo "gz sim 版本: $(gz sim --versions 2>/dev/null | head -1)"
     echo "命令: ${LAUNCH_TARGET}"

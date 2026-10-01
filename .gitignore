@@ -8,9 +8,9 @@ src/log
 src/my_tf_pkg/build
 src/my_tf_pkg/install
 src/my_tf_pkg/log
-src/fishbot_description/build
-src/fishbot_description/install
-src/fishbot_description/log
+src/mybot_description/build
+src/mybot_description/install
+src/mybot_description/log
 rosbag2_*
 gz-cache
 # 巡逻案例运行时产出的照片（autopatrol.launch.py 的 image_save_path）

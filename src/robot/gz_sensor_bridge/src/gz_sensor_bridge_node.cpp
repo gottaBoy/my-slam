@@ -25,14 +25,14 @@
 // 【现状】本节点**不是必需的**：parameter_bridge 实测同样能桥这 5 个话题，
 //   两条路都可用且实测等价（发布者数、频率、数据自洽性、frame_id 均一致）。
 //   选哪条由 launch 参数 sensor_bridge 决定，
-//   见 fishbot_description/launch/gazebo_sim_gz.launch.py：
+//   见 mybot_description/launch/gazebo_sim_gz.launch.py：
 //       sensor_bridge:=gz_sensor_bridge  （默认）本节点
 //       sensor_bridge:=parameter_bridge  ros_gz_bridge 内置桥
 //   保留本节点的理由：它已经逐项验证过、工作正常，
 //   没有理由为了“回归内置桥”去删掉一个能用且测试覆盖的部件。
 //
 // ============================================================================
-// 覆盖的话题（与 urdf/fishbot/plugins/gz_sensor_plugin.xacro 一一对应）
+// 覆盖的话题（与 urdf/mybot/plugins/gz_sensor_plugin.xacro 一一对应）
 // ============================================================================
 //   gz /imu                -> ROS /imu                 sensor_msgs/msg/Imu
 //   gz /camera/image       -> ROS /camera/image        sensor_msgs/msg/Image

@@ -51,8 +51,8 @@ def _find_in_src(rel_path):
     return os.path.join(root, rel_path)
 
 
-DEFAULT_MAP = _find_in_src('fishbot_navigation2/maps/room.pgm')
-DEFAULT_YAML = _find_in_src('fishbot_navigation2/maps/room.yaml')
+DEFAULT_MAP = _find_in_src('mybot_navigation2/maps/room.pgm')
+DEFAULT_YAML = _find_in_src('mybot_navigation2/maps/room.yaml')
 
 OCCUPIED_THRESH = 0.65
 FREE_THRESH = 0.25

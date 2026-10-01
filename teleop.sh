@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 在容器里启动 fishbot 键盘遥控（在宿主机上执行）。
+# 在容器里启动 mybot 键盘遥控（在宿主机上执行）。
 #
 # 为什么要有这个脚本：`/workspace/...` 是**容器内**路径，在宿主机上不存在。
 # 直接照文档在宿主机跑 python3 /workspace/... 会得到
@@ -26,11 +26,11 @@ set -euo pipefail
 cleanup() {
     # 这里固定 -T：收尾阶段不需要 TTY，也不该因为 TTY 问题挂住。
     docker compose exec -T "${SERVICE_NAME}" \
-        pkill -f 'fishbot_teleop.py' >/dev/null 2>&1 || true
+        pkill -f 'mybot_teleop.py' >/dev/null 2>&1 || true
 }
 trap cleanup INT TERM EXIT
 
 # CEXEC_NO_EXEC=1 是必须的：如果用 exec 替换掉进程，EXIT trap 就不会执行，
 # 残留的 teleop 会继续发 /cmd_vel。
 CEXEC_NO_EXEC=1 cexec python3 \
-/workspace/my-slam/src/robot/fishbot_description/scripts/fishbot_teleop.py "$@"
+/workspace/my-slam/src/robot/mybot_description/scripts/mybot_teleop.py "$@"

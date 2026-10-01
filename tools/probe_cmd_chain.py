@@ -7,7 +7,7 @@
     velocity_smoother  ->  /cmd_vel_smoothed
     collision_monitor  ->  /cmd_vel            <- 下游就是差速控制器
     docking_server     ->  /cmd_vel            （只在对接时发）
-    fishbot_diff_drive_controller  <-- 订阅 /cmd_vel（BEST_EFFORT）
+    mybot_diff_drive_controller  <-- 订阅 /cmd_vel（BEST_EFFORT）
 
 判读方法：
   * 每级都非零，但车不动        -> 物理问题（被卡住/轮子打滑）

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 从宿主机一键启动 fishbot 的 Gazebo Sim 仿真（含控制器 + 传感器 + ROS 桥接）。
+# 从宿主机一键启动 mybot 的 Gazebo Sim 仿真（含控制器 + 传感器 + ROS 桥接）。
 #
 # 用法：
 #   ./sim.sh                       # 开 GUI（默认）
@@ -10,7 +10,7 @@
 #   ./sim.sh -- headless:=true     # 原样透传给 ros2 launch
 #
 # 它做的事等价于进容器执行（overlay 由 entrypoint.sh 自动 source）：
-#   ros2 launch fishbot_description gazebo_sim_gz.launch.py <参数...>
+#   ros2 launch mybot_description gazebo_sim_gz.launch.py <参数...>
 #
 # 注意：教材原版的 gazebo_sim.launch.py 基于 Gazebo classic（gazebo_ros），
 #       Jazzy 已经不提供 gazebo_ros，那条路跑不起来。这里走的是新增的 _gz 版本。
@@ -18,7 +18,7 @@ set -euo pipefail
 
 . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/container-exec.sh"
 
-PKG="${SIM_PKG:-fishbot_description}"
+PKG="${SIM_PKG:-mybot_description}"
 LAUNCH_FILE="${SIM_LAUNCH_FILE:-gazebo_sim_gz.launch.py}"
 
 usage() {

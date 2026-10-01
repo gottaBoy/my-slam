@@ -20,7 +20,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import JointState
 
-CTRL = '/fishbot_diff_drive_controller'
+CTRL = '/mybot_diff_drive_controller'
 
 
 def get_param(name):
