@@ -1,6 +1,10 @@
 src/build
 src/install
 src/log
+# colcon 工作空间根是 my-slam/ 本身，产物在顶层
+/build
+/install
+/log
 src/my_tf_pkg/build
 src/my_tf_pkg/install
 src/my_tf_pkg/log
@@ -8,3 +12,5 @@ src/fishbot_description/build
 src/fishbot_description/install
 src/fishbot_description/log
 rosbag2_*
+gz-cache
+.env

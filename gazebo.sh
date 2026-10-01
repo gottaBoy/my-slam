@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
+# 开一个空的 Gazebo Sim GUI（不带机器人），用来手动摆模型、观察世界。
+# 跑 fishbot 的完整仿真（带控制器/传感器/桥接）请用 ./sim.sh。
+#
+# 例子：
+#   ./gazebo.sh                                   # 空世界
+#   ./gazebo.sh /workspace/Dataset-of-Gazebo-Worlds-Models-and-Maps/worlds/empty_room/world.sdf
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
-export HOST_UID="${HOST_UID:-$(id -u)}"
-export HOST_GID="${HOST_GID:-$(id -g)}"
-export CONTAINER_NAME="${CONTAINER_NAME:-slam-ros2-dev}"
-
-exec docker compose exec slam-ros2-dev /usr/local/bin/slam-ros2-entrypoint gz sim "$@"
+. "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/container-exec.sh"
+cexec gz sim "$@"

@@ -1,0 +1,145 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo Sim (gz sim / ros_gz) 版本的传感器插件。
+
+  对应书上的 classic 版本 urdf/fishbot/plugins/gazebo_sensor_plugin.xacro。
+  classic 用 libgazebo_ros_*.so 直接把数据发成 ROS 话题；Gazebo Sim 里传感器
+  先发到 gz 话题，再由 ros_gz_bridge 桥接成 ROS 话题（桥接列表见
+  launch/gazebo_sim_gz.launch.py）。
+
+  参数数值与书上保持一致，映射关系：
+    雷达  type="ray"   + libgazebo_ros_ray_sensor.so  ->  type="gpu_lidar"
+    IMU   type="imu"   + libgazebo_ros_imu_sensor.so  ->  type="imu"（结构相同）
+    相机  type="depth" + libgazebo_ros_camera.so      ->  type="rgbd_camera"
+
+  <topic> 的命名规则（对照官方 ros_gz_sim_demos 实测）：
+    gpu_lidar  : <topic>            -> /<topic>（LaserScan）、/<topic>/points
+    imu        : <topic>            -> /<topic>
+    rgbd_camera: <topic>            -> /<topic>/image、/<topic>/depth_image、
+                                       /<topic>/camera_info、/<topic>/points
+  <gz_frame_id> 决定桥接后在 ROS 消息 header.frame_id 里出现的 frame。
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="gz_sensor_plugin">
+
+        <!-- ==================== 2D 雷达 ==================== -->
+        <gazebo reference="laser_link">
+            <sensor name="laserscan" type="gpu_lidar">
+                <topic>scan</topic>
+                <gz_frame_id>laser_link</gz_frame_id>
+                <always_on>true</always_on>
+                <visualize>true</visualize>
+                <update_rate>5</update_rate>
+                <lidar>
+                    <scan>
+                        <horizontal>
+                            <samples>360</samples>
+                            <resolution>1</resolution>
+                            <min_angle>0.000000</min_angle>
+                            <max_angle>6.280000</max_angle>
+                        </horizontal>
+                    </scan>
+                    <range>
+                        <min>0.120000</min>
+                        <max>8.0</max>
+                        <resolution>0.015000</resolution>
+                    </range>
+                    <noise>
+                        <type>gaussian</type>
+                        <mean>0.0</mean>
+                        <stddev>0.01</stddev>
+                    </noise>
+                </lidar>
+            </sensor>
+        </gazebo>
+
+        <!-- ==================== IMU ==================== -->
+        <gazebo reference="imu_link">
+            <sensor name="imu_sensor" type="imu">
+                <topic>imu</topic>
+                <gz_frame_id>imu_link</gz_frame_id>
+                <always_on>true</always_on>
+                <update_rate>100</update_rate>
+                <!-- 六轴噪声设置 -->
+                <imu>
+                    <angular_velocity>
+                        <x>
+                            <noise type="gaussian">
+                                <mean>0.0</mean>
+                                <stddev>2e-4</stddev>
+                                <bias_mean>0.0000075</bias_mean>
+                                <bias_stddev>0.0000008</bias_stddev>
+                            </noise>
+                        </x>
+                        <y>
+                            <noise type="gaussian">
+                                <mean>0.0</mean>
+                                <stddev>2e-4</stddev>
+                                <bias_mean>0.0000075</bias_mean>
+                                <bias_stddev>0.0000008</bias_stddev>
+                            </noise>
+                        </y>
+                        <z>
+                            <noise type="gaussian">
+                                <mean>0.0</mean>
+                                <stddev>2e-4</stddev>
+                                <bias_mean>0.0000075</bias_mean>
+                                <bias_stddev>0.0000008</bias_stddev>
+                            </noise>
+                        </z>
+                    </angular_velocity>
+                    <linear_acceleration>
+                        <x>
+                            <noise type="gaussian">
+                                <mean>0.0</mean>
+                                <stddev>1.7e-2</stddev>
+                                <bias_mean>0.1</bias_mean>
+                                <bias_stddev>0.001</bias_stddev>
+                            </noise>
+                        </x>
+                        <y>
+                            <noise type="gaussian">
+                                <mean>0.0</mean>
+                                <stddev>1.7e-2</stddev>
+                                <bias_mean>0.1</bias_mean>
+                                <bias_stddev>0.001</bias_stddev>
+                            </noise>
+                        </y>
+                        <z>
+                            <noise type="gaussian">
+                                <mean>0.0</mean>
+                                <stddev>1.7e-2</stddev>
+                                <bias_mean>0.1</bias_mean>
+                                <bias_stddev>0.001</bias_stddev>
+                            </noise>
+                        </z>
+                    </linear_acceleration>
+                </imu>
+            </sensor>
+        </gazebo>
+
+        <!-- ==================== 深度相机 ==================== -->
+        <gazebo reference="camera_link">
+            <sensor name="camera_sensor" type="rgbd_camera">
+                <topic>camera</topic>
+                <gz_frame_id>camera_optical_link</gz_frame_id>
+                <always_on>true</always_on>
+                <update_rate>10</update_rate>
+                <camera>
+                    <horizontal_fov>1.5009831567</horizontal_fov>
+                    <image>
+                        <width>800</width>
+                        <height>600</height>
+                        <format>R8G8B8</format>
+                    </image>
+                    <!-- 必须给 near/far，否则 gz sim 会警告并取默认值 -->
+                    <clip>
+                        <near>0.05</near>
+                        <far>100.0</far>
+                    </clip>
+                </camera>
+            </sensor>
+        </gazebo>
+
+    </xacro:macro>
+</robot>

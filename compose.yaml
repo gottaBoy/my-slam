@@ -26,7 +26,22 @@ services:
       HOME: /home/${CONTAINER_USER:-nvidia}
       BASH_ENV: /workspace/my-slam/ros-env.sh
       XAUTHORITY: /home/${CONTAINER_USER:-nvidia}/.Xauthority
+      # Gazebo Sim 的本地模型搜索路径。每个条目必须是「模型目录的父目录」，
+      # 即里面直接就是 ur10/、fire_truck/ 这类带 model.config 的目录。
+      # ROS 的 ros_gz hook 会把 /opt/ros/jazzy/share 以 prepend-non-duplicate
+      # 方式加在前面，所以这里不会被覆盖。
+      #
+      # 只放一个目录：/workspace/gazebo_models 是同一个模型库的另一份副本。
+      # 两份都放进搜索路径会出问题 —— model://ur10 有两个候选（谁先被找到不确定），
+      # 而且 gz sim 的 GUI 会把所有路径都扫一遍，两份文件的修复状态不一致时，
+      # 未修复的那份照样报错。
+      GZ_SIM_RESOURCE_PATH: /home/${CONTAINER_USER:-nvidia}/.gz/models
+      # gz sim / rviz2 必须走 X11(xcb)。若 Qt 自动选到 wayland 平台插件，
+      # 会在没有 wl_surface 的容器里直接报 "failed to create drawable"。
+      QT_QPA_PLATFORM: ${QT_QPA_PLATFORM:-xcb}
+      # 容器内 X11 MIT-SHM 共享内存不可靠，禁用后 GLX 才能正常创建 drawable。
       QT_X11_NO_MITSHM: "1"
+      # 默认软件渲染（llvmpipe）。接上 GPU 后由 compose.nvidia.yaml 覆盖为 0。
       LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-1}
       XDG_RUNTIME_DIR: /tmp/xdg-${HOST_UID:-1000}
     volumes:
@@ -36,6 +51,10 @@ services:
       - type: bind
         source: /tmp/.X11-unix
         target: /tmp/.X11-unix
+      # 持久化 Gazebo 模型缓存：容器重建后不必重新下载 Fuel 模型
+      - type: bind
+        source: ${GZ_CACHE_DIR:-./gz-cache}
+        target: /home/${CONTAINER_USER:-nvidia}/.gz
       - type: bind
         source: ${XAUTHORITY_FILE:-/run/user/1000/gdm/Xauthority}
         target: /home/${CONTAINER_USER:-nvidia}/.Xauthority

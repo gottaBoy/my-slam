@@ -26,10 +26,25 @@ fi
 
 if [[ ! -r "$XAUTHORITY_FILE" ]]; then
     echo "X11 authority file is not readable: $XAUTHORITY_FILE" >&2
+    echo "Hint: xauth nlist \"$DISPLAY\" | sed -e 's/^..../ffff/' | xauth -f \"$XAUTHORITY_FILE\" nmerge -" >&2
     exit 1
 fi
 
-docker compose up -d --build
+# 宿主机具备 NVIDIA GPU 直通能力时，自动叠加 GPU 覆盖文件。
+# 判定依据：CDI spec 存在，或 Docker 注册了 nvidia runtime。
+# 显式设置了 COMPOSE_FILE 的话以用户配置为准。
+compose_files=()
+if [[ -z "${COMPOSE_FILE:-}" ]] && [[ -f "${SCRIPT_DIR}/compose.nvidia.yaml" ]]; then
+    if [[ -e /var/run/cdi/nvidia.yaml ]] \
+        || docker info --format '{{range $k, $v := .Runtimes}}{{$k}} {{end}}' 2>/dev/null \
+            | grep -qw nvidia; then
+        compose_files=(-f compose.yaml -f compose.nvidia.yaml)
+        echo "Detected NVIDIA GPU support: GPU passthrough enabled"
+        echo "If the host GPU is unusable, rerun with LIBGL_ALWAYS_SOFTWARE=1."
+    fi
+fi
+
+docker compose "${compose_files[@]}" up -d --build
 
 echo "Started ${CONTAINER_NAME}"
 echo "Workspace: ${SCRIPT_DIR}/.. -> /workspace"

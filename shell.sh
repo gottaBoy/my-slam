@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
+# 交互式进入容器。
+#
+# 进去以后 overlay 已经 source 好了，可以直接用：
+#   ros2 launch fishbot_description gazebo_sim_gz.launch.py
+#   ros2 pkg prefix fishbot_description      # 不再报 Package not found
+# 想看内部到底 source 了哪几个 overlay：echo "$SLAM_OVERLAY_SETUP"
+#
+# 非交互用法（不占终端）：./shell.sh -c 'ros2 topic list'
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+. "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/container-exec.sh"
 
-export HOST_UID="${HOST_UID:-$(id -u)}"
-export HOST_GID="${HOST_GID:-$(id -g)}"
-export CONTAINER_NAME="${CONTAINER_NAME:-slam-ros2-dev}"
-
-exec docker compose exec slam-ros2-dev /usr/local/bin/slam-ros2-entrypoint bash -i
+if [ $# -gt 0 ]; then
+    # 带参数时是「一次性命令」，不要加 -i：非终端环境下 bash -i 会刷
+    # "cannot set terminal process group" / "no job control" 之类的噪音。
+    cexec bash "$@"
+else
+    cexec bash -i
+fi
