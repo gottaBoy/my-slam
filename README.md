@@ -527,6 +527,85 @@ Please set the initial pose...`（= 没有位姿），设定后立刻正常发�
 ./shell.sh -c 'ros2 launch fishbot_navigation2 navigation2.launch.py rviz:=false params_file:=/tmp/nav2_custom_test.yaml'
 ```
 
+### 第 9 章：fishbot_bringup（真机启动 + 仿真版一键启动）
+
+#### 先说结论：第 9 章是**真机**章节
+
+`fishbot_bringup` 的 `launch/bringup.launch.py` 启动的是：
+
+| 节点 | 作用 | 我们有没有 |
+| --- | --- | --- |
+| `ydlidar` | 实体 YDLIDAR 雷达驱动 | ❌ 没有这个包 |
+| `micro_ros_agent` | 和单片机（ESP32）通信 | ❌ 没有这个包 |
+| `ros_serial2wifi` | 串口转 WiFi 桥 | ❌ 没有这个包 |
+| `odom2tf` | 把 `/odom` 转成 TF | ✅ 本包自带 |
+| `urdf2tf` | robot_state_publisher 起 URDF | ✅ 有等价物 |
+
+所以直接跑它必然是失败的，实测原始报错：
+
+```
+[ERROR] [launch]: Caught exception in launch ...
+ - PackageNotFoundError: "package 'ydlidar' not found, searching: [...]"
+```
+
+**这份文件保持原样**（只修了下面那个 bug），真机用。
+
+#### 修了它自身的一个真 bug
+
+`bringup.launch.py` 里变量定义成 `ros_serial2wifi`，但在 `LaunchDescription`
+列表里写成了 `ros_serail2wifi`（**字母顺序写反**）——这会让 launch 一启动就抛
+`NameError`。已改正为 `ros_serial2wifi`。
+
+#### 刻意没有搬 / 没有用的东西
+
+| 项 | 为什么不搬 |
+| --- | --- |
+| 第 9 章的 `fishbot_description` | 同名包，而且里面只有一个单体 `urdf/fishbot.urdf`，是本仓库 xacro 版的**子集** |
+| 第 9 章的 `maps/room.pgm` | 实测 **152×103 px**（7.6×5.15 m，origin `-3.9,-1.82`），而第 7 章那份是 **376×222 px**（18.8×11.1 m，origin `-10.4,-6.53`）——**完全不同的区域**，是作者真机所在的小场地，换上去仿真里的目标点全对不上。两份的 `nav2_params.yaml` 倒是**逐字节相同**。 |
+| `odom2tf` 在仿真里启动 | 仿真里 `odom→base_footprint` 这条 TF 已经由 `fishbot_diff_drive_controller`（`enable_odom_tf: true`）在发，再让 `odom2tf` 发一遍同一条变换会出现两个发布者互相打架。真机上里程计不发 TF，才需要它。 |
+
+#### 补了一个「仿真版一键启动」
+
+ch9 的核心价值是**一条命令拉起整个机器人**。真机版在这里跑不了，所以加了
+`fishbot_bringup/launch/bringup_sim.launch.py`：一条命令起「Gazebo 仿真 +
+Nav2 + 设置初始位姿」，把原来要开三个终端的流程收成一个。
+
+```bash
+# 容器内
+ros2 launch fishbot_bringup bringup_sim.launch.py
+ros2 launch fishbot_bringup bringup_sim.launch.py headless:=false rviz:=true
+ros2 launch fishbot_bringup bringup_sim.launch.py initial_pose:=false
+```
+
+参数：`headless`(默认 true)、`rviz`(false)、`initial_pose`(true)、
+`nav2_delay`(12 s，等机器人生成)、`pose_delay`(30 s，等 Nav2 激活)。
+
+实测（一条命令，headless）：**0 个 ERROR**，`ruby`(gz sim) /
+`parameter_bridge` / `gz_sensor_bridge` / `robot_state_publisher` /
+`component_container`(Nav2) 全部在跑，Nav2 两个 lifecycle manager 都
+`Managed nodes are active`，`map→base_footprint = [0,0,0]` 与刚起仿真的机器人
+真值一致。
+
+> `initial_pose` 走的是教材的 `init_robot_pose`，固定发 `(0,0,0)`，只适合
+> 「刚起仿真、机器人还在原点」。机器人已经被开走了就用
+> `tools/set_initial_pose.py --from-gz`。
+
+#### 顺带补的运维脚本
+
+`./stop-sim.sh`（容器内 `tools/stop-sim.sh`）——安全停掉仿真。之前停仿真只能靠
+跑 `sim.sh` 的那个终端 Ctrl-C，终端关了就没辙。同样把 pkill 模式放在脚本文件里，
+避免自匹配。
+
+#### 一个容易踩的坑：`--symlink-install` 新增文件也要重编
+
+`--symlink-install` 只保证**修改**已有文件不用重编；**新增**文件（比如新写的
+launch）必须再 `colcon build` 一次，否则 install 目录里没有它，运行时报：
+
+```
+file 'bringup_sim.launch.py' was not found in the share directory of package 'fishbot_bringup'
+```
+
+
 
 
 ## 启动
