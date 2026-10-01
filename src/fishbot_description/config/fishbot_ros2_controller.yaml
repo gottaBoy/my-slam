@@ -29,7 +29,11 @@ fishbot_diff_drive_controller:
     left_wheel_names: ["left_wheel_joint"]
     right_wheel_names: ["right_wheel_joint"]
 
-    wheel_separation: 0.17
+    # 轮距 = 两轮 y 坐标之差的绝对值。URDF 里 fishbot_gz.urdf.xacro 定义：
+    #   <xacro:wheel_xacro wheel_name="left"  xyz="0  0.10 -0.06" />
+    #   <xacro:wheel_xacro wheel_name="right" xyz="0 -0.10 -0.06" />
+    # => 0.10 - (-0.10) = 0.20（chapt7 已从此前的 0.17 修正为 0.20）
+    wheel_separation: 0.20
     #wheels_per_side: 1  # actually 2, but both are controlled by 1 signal
     wheel_radius: 0.032
 

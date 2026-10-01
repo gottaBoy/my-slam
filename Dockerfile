@@ -54,6 +54,35 @@ RUN apt-get update \
     && git lfs install --system \
     && rm -rf /var/lib/apt/lists/*
 
+# ---------------------------------------------------------------------------
+# 追加依赖层
+#
+# 为什么单独一层：上面那层 apt 很大（约 836MB / 构建约 51 分钟）。把新包塞进
+# 去会让整层缓存失效、重跑一次几十分钟；单独一层则只增量构建。
+#
+# 为什么默认走国内镜像：实测本机访问 packages.ros.org 约 14 KB/s，而
+# mirrors.ustc.edu.cn 约 5.8 MB/s（相差约 400 倍）；Ubuntu ports 官方源同样很慢。
+# 需要走官方源时： docker compose build --build-arg APT_USE_CN_MIRROR=0
+#
+# ros-jazzy-tf-transformations 被以下代码依赖（chapt7 及本仓库原有 my_tf_pkg）：
+#   autopatrol_robot/patrol_node.py、fishbot_application/get_robot_pose.py、
+#   my_tf_pkg/{static_tf_broadcaster,dynamic_tf_broadcaster,tf_listener}.py
+# ---------------------------------------------------------------------------
+ARG APT_USE_CN_MIRROR=1
+RUN set -eu; \
+    if [ "${APT_USE_CN_MIRROR}" = "1" ]; then \
+        sed -i 's#^Types: deb deb-src#Types: deb#' /usr/share/ros-apt-source/ros2.sources; \
+        sed -i 's#http://packages.ros.org/ros2/ubuntu#https://mirrors.ustc.edu.cn/ros2/ubuntu#' /usr/share/ros-apt-source/ros2.sources; \
+        sed -i 's#http://ports.ubuntu.com/ubuntu-ports/#https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/#' /etc/apt/sources.list.d/ubuntu.sources; \
+        echo "[apt] 已切换到国内镜像 (USTC ROS / TUNA Ubuntu)"; \
+    else \
+        echo "[apt] 使用官方源（会明显更慢）"; \
+    fi; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ros-jazzy-tf-transformations; \
+    rm -rf /var/lib/apt/lists/*
+
 ARG CONTAINER_USER=nvidia
 ARG HOST_UID=1000
 ARG HOST_GID=1000

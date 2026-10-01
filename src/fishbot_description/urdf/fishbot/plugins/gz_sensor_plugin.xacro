@@ -29,7 +29,8 @@
                 <gz_frame_id>laser_link</gz_frame_id>
                 <always_on>true</always_on>
                 <visualize>true</visualize>
-                <update_rate>5</update_rate>
+                <!-- 10Hz 与 chapt7 的 gazebo_sensor_plugin.xacro 保持一致（原为 5） -->
+                <update_rate>10</update_rate>
                 <lidar>
                     <scan>
                         <horizontal>
