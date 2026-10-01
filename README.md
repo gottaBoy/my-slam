@@ -66,7 +66,14 @@ cd /home/my/workspace/slam/my-slam
 # 另开一个终端：图形化看
 ./rviz2.sh     # Fixed Frame 选 base_footprint；Add -> By topic
                #   /camera/image (Image)、/scan (LaserScan)、/imu (Imu)
-./rqt.sh       # 想看话题列表 / 节点关系 / TF 树时用
+./rqt.sh       # 话题列表 / 节点关系 / TF 树等：Plugins 菜单里按需勾
+
+# 看「节点 ↔ 话题」关系图（三种方式任选）
+./rqt.sh       # ① 图形界面：Plugins → Introspection → Node Graph（最直观）
+./shell.sh -c 'python3 /workspace/my-slam/tools/show_graph.py'            # ② 文本
+./shell.sh -c 'python3 /workspace/my-slam/tools/show_graph.py --mermaid'  # ③ Mermaid，可粘进 Markdown
+#   默认隐藏 /rosout、/parameter_events、controller_manager 内省话题等噪声；
+#   要看全部加 --all；节点刚起来时加 --wait 5。
 
 # 另开一个终端：命令行核对
 ./shell.sh -c 'ros2 topic list'
