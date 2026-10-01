@@ -57,30 +57,30 @@ from launch_ros.parameter_descriptions import ParameterValue
 # 位置写错（例如 '/scan[sensor_msgs/msg/LaserScan@gz.msgs.LaserScan'）**不会报任何错**，
 # 那条桥被静默忽略，现象是"话题存在但一直没有数据"。—— 这条是实测过的。
 #
-# ⚠️ 已知问题：下面 7 条传感器桥里会有 4~5 条建不出来，报
-#        No template specialization for the pair
-#    受影响：/imu、/camera/image、/camera/depth_image、/camera/camera_info、/camera/points
+# ⚠️ 关于 /imu 和 /camera/*：这里有过一段「上游缺陷」的结论，现已撤回
 #
-#    【原因未定位】。不要在这里补"解释"：本文件此处先后写过两版原因（"单向不支持"、
-#    "第一个桥之后才失败"），都被后续实验推翻了。以下才是【已复现的事实】，
-#    证据与复现脚本见 README 的「已知问题」一节、tools/exp-bridge-repro.sh：
+# 【2026-09-30 观察到的现象】
+#   下面这批传感器桥里会有 4~5 条建不出来，报
+#       No template specialization for the pair
+#   受影响：/imu、/camera/image、/camera/depth_image、/camera/camera_info、/camera/points
+#   当时记录的「事实」是：同一份参数连跑 3 次，失败集合完全相同，不像时好时坏；
+#   与类型对/话题名/是否双向都无关，但换参数顺序失败集合会变。
 #
-#      1. 稳定：同一份参数连跑 3 次，失败集合完全相同，不是"时好时坏"。
-#      2. 与类型对无关：单独桥接
-#             parameter_bridge '/imu@sensor_msgs/msg.Imu@gz.msgs.IMU'
-#         双向都建得出来、零告警；两个参数的组合也正常。
-#      3. 与话题名无关：把话题换成 /a /b /c，结果完全一样。
-#      4. 与参数顺序有关：同一批参数换个顺序，失败集合会变
-#         （`clock,clock,scan,spts,imu` 让 imu 失败；`scan,spts,clock,clock,imu` 则 0 失败）。
-#      5. 与是否双向无关：@ 和 [ 都会触发，改单向解决不了。
+# 【2026-10-01 复核 —— 结论撤回】
+#   在同一个容器里（没有重建镜像、没有换容器）逐个场景重试，
+#   **全部 0 失败**，那个失败一次都没再出现：
+#     * 单条桥 /imu（单向 [ 和双向 @ 都试）              -> 成功
+#     * 当时记录在案的「失败组合」clock,clock,scan,spts,imu -> 5 条全成功
+#     * 原始的 9 条桥 + --ros-args remapping 配置         -> 9 条全成功
+#   复现脚本：tools/probe-bridge-types.sh（可重复执行，自带对照与判读说明）
 #
-#    结论：话题和类型本身没问题，同一份配置在会话开头也是全通的，现在却稳定失败；
-#    失败与否取决于传给 parameter_bridge 的那串参数的组合与顺序。所以这不是本仓库的
-#    模型/world/传感器配置问题，是上游 arm64 构建的缺陷（已确认就是 apt 源里最新版本）。
+#   所以：**原因至今未定位，且当前无法复现**。当初那份「稳定失败」的观察应该是
+#   真的，但把它归因成「上游 arm64 构建缺陷」是**推测**，没有证据支持，不成立。
+#   此处不再写任何未经证实的解释。
 #
-# 处理办法：出问题的那几个话题**不再交给 parameter_bridge**，改由本仓库自己的
-#   gz_sensor_bridge 包直接用 gz-transport 订阅 + 发 ROS 消息（见 src/gz_sensor_bridge/）。
-#   这里只留下实测稳定的 /scan 和 /scan/points。
+# 【现状】gz_sensor_bridge 保留 —— 它工作正常且已逐项验证（见 README 的实测表）。
+#   但它的定位从「绕开上游 bug 的必要手段」改成「一个可用的替代实现」。
+#   哪天真复现了，probe-bridge-types.sh 的输出可以直接拿去报上游。
 #
 # ⚠️ 这两个必须用**单向** `[`（GZ->ROS），不能用双向 `@`！
 #   原因：gz 的激光/点云本来就发布在这两个话题上，如果桥再建一条 ROS->GZ 的方向，
@@ -184,7 +184,9 @@ def generate_launch_description():
             output='screen',
         )
 
-        # IMU + 相机：交给本仓库自己的节点，绕开上面那个上游缺陷。
+        # IMU + 相机：交给本仓库自己的节点（gz_sensor_bridge）。
+        # 它工作正常且已逐项验证；注意这**不是**「绕开上游 bug 的必要手段」——
+        # 那个 bug 现在复现不出来、结论已撤回，详见文件顶部那段说明。
         # 两个 frame_id 参数和 urdf/fishbot/plugins/gz_sensor_plugin.xacro 里的
         # <gz_frame_id> 保持一致；节点会优先用 gz 消息里带的 frame_id，取不到才用这两个值。
         sensor_bridge_node = Node(
