@@ -1046,7 +1046,7 @@ ros2 launch mybot_description gazebo_sim_gz.launch.py
 | `urdf/mybot/mybot_gz.urdf.xacro` | 总装文件，组件复用教材的，只换最后两个插件 |
 | `urdf/mybot/plugins/gz_control_plugin.xacro` | `gz_ros2_control/GazeboSimSystem` + `libgz_ros2_control-system.so` |
 | `urdf/mybot/plugins/gz_sensor_plugin.xacro` | `gpu_lidar` / `imu` / `rgbd_camera` 三个 gz 传感器 |
-| `world/custom_room_gz.world` | 教材 `custom_room.world` 的副本，加了 4 个系统插件 |
+| `world/custom_room_gz.world` | 教材 `custom_room.world` 的副本，加了 5 个系统插件（Physics / UserCommands / SceneBroadcaster / Sensors / Imu） |
 
 ### 与教材的关键差异
 
@@ -1057,9 +1057,14 @@ ros2 launch mybot_description gazebo_sim_gz.launch.py
    `libgz_ros2_control-system.so`。gz_ros2_control 会从 `/robot_description`
    **话题**里读 URDF（sdformat 转换时会把 `<ros2_control>` 丢掉，所以只能走话题），
    因此 `robot_state_publisher` 必须先起来。
-3. **必须加载 `Sensors` 系统**：`gz sim` 默认的 `server.config` 只带
-   Physics / UserCommands / SceneBroadcaster，**不含 Sensors**，缺它相机和雷达
-   完全不工作。所以 `world/custom_room_gz.world` 里显式声明了这 4 个插件。
+3. **必须加载 `Sensors` 与 `Imu` 两个系统**：`gz sim` 默认的 `server.config` 只带
+   Physics / UserCommands / SceneBroadcaster，**不含 Sensors、也不含 Imu**。
+   - 缺 `Sensors`：相机 / 雷达 / 点云完全不工作（它们靠渲染引擎出数据）。
+   - 缺 `Imu`：IMU 属「非渲染传感器」，由独立 system 负责，`Sensors` 不管它；
+     缺它则 `/imu` 话题存在但永远没有数据。
+
+   所以 `world/custom_room_gz.world` 里显式声明了这 **5 个** system 插件
+   （Physics / UserCommands / SceneBroadcaster / Sensors / Imu）。
 4. **cmd_vel 重映射修正**：教材写的 `cmd_vel_unstamped:=/cmd_vel` 在 Jazzy 上无效，
    Jazzy 的 `diff_drive_controller` 只订阅 `~/cmd_vel`（`use_stamped_vel` 参数已移除）。
 5. `mybot_effort_controller` 定义了却没挂进事件链（死代码）；
