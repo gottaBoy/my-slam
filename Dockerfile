@@ -12,6 +12,37 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 ENV ROS_DISTRO=jazzy
 
+# ---------------------------------------------------------------------------
+# 换源层：必须在下面那个大安装层**之前**
+#
+# 为什么单独提前一层：下面那层要装约 25 个包（首次构建实测下载 836 MB）。
+# 换源如果放在它之后，那 836 MB 就全走官方源 —— 实测本机访问
+# packages.ros.org 只有 14 KB/s、ports.ubuntu.com 同样慢，而
+# mirrors.ustc.edu.cn 约 5.8 MB/s（差约 400 倍）。这是构建慢的唯一原因。
+#
+# 本层只做 sed、不跑 apt，所以层极小，缓存失效的代价可忽略。
+# 要回到官方源： docker compose build --build-arg APT_USE_CN_MIRROR=0
+# ---------------------------------------------------------------------------
+ARG APT_USE_CN_MIRROR=1
+RUN set -eu; \
+    if [ "${APT_USE_CN_MIRROR}" = "1" ]; then \
+        ubuntu_src=/etc/apt/sources.list.d/ubuntu.sources; \
+        ros_src=/usr/share/ros-apt-source/ros2.sources; \
+        for f in "${ubuntu_src}" "${ros_src}"; do \
+            [ -f "$f" ] || { echo "[apt] 找不到 $f —— 基础镜像的源文件结构变了，请更新本层" >&2; exit 1; }; \
+        done; \
+        sed -i 's#^Types: deb deb-src#Types: deb#' "${ros_src}"; \
+        sed -i 's#http://packages.ros.org/ros2/ubuntu#https://mirrors.ustc.edu.cn/ros2/ubuntu#' "${ros_src}"; \
+        sed -i 's#http://ports.ubuntu.com/ubuntu-ports/#https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/#' "${ubuntu_src}"; \
+        grep -q 'mirrors.ustc.edu.cn' "${ros_src}" \
+            || { echo "[apt] ROS 源替换失败" >&2; exit 1; }; \
+        grep -q 'mirrors.tuna.tsinghua.edu.cn' "${ubuntu_src}" \
+            || { echo "[apt] Ubuntu 源替换失败" >&2; exit 1; }; \
+        echo "[apt] 已切换到国内镜像 (USTC ROS / TUNA Ubuntu) —— 下面这层会快很多"; \
+    else \
+        echo "[apt] 按 APT_USE_CN_MIRROR=0 使用官方源（会明显更慢）"; \
+    fi
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         bash-completion \
@@ -47,6 +78,7 @@ RUN apt-get update \
         ros-jazzy-ros2-controllers \
         ros-jazzy-rqt \
         ros-jazzy-rqt-common-plugins \
+        ros-jazzy-rqt-tf-tree \
         ros-jazzy-rviz2 \
         ros-jazzy-robot-localization \
         ros-jazzy-slam-toolbox \
@@ -60,8 +92,7 @@ RUN apt-get update \
 # 为什么单独一层：上面那层 apt 很大（约 836MB / 构建约 51 分钟）。把新包塞进
 # 去会让整层缓存失效、重跑一次几十分钟；单独一层则只增量构建。
 #
-# 为什么默认走国内镜像：实测本机访问 packages.ros.org 约 14 KB/s，而
-# mirrors.ustc.edu.cn 约 5.8 MB/s（相差约 400 倍）；Ubuntu ports 官方源同样很慢。
+# 换源已在文件开头的「换源层」统一处理（在大安装层之前），这里只装包。
 # 需要走官方源时： docker compose build --build-arg APT_USE_CN_MIRROR=0
 #
 # ros-jazzy-tf-transformations 被以下代码依赖（chapt7 及本仓库原有 my_tf_pkg）：
@@ -72,17 +103,7 @@ RUN apt-get update \
 # （example_interfaces/srv/AddTwoInts）。不加的话编译会报：
 #   Could not find a package configuration file provided by "example_interfaces"
 # ---------------------------------------------------------------------------
-ARG APT_USE_CN_MIRROR=1
-RUN set -eu; \
-    if [ "${APT_USE_CN_MIRROR}" = "1" ]; then \
-        sed -i 's#^Types: deb deb-src#Types: deb#' /usr/share/ros-apt-source/ros2.sources; \
-        sed -i 's#http://packages.ros.org/ros2/ubuntu#https://mirrors.ustc.edu.cn/ros2/ubuntu#' /usr/share/ros-apt-source/ros2.sources; \
-        sed -i 's#http://ports.ubuntu.com/ubuntu-ports/#https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/#' /etc/apt/sources.list.d/ubuntu.sources; \
-        echo "[apt] 已切换到国内镜像 (USTC ROS / TUNA Ubuntu)"; \
-    else \
-        echo "[apt] 使用官方源（会明显更慢）"; \
-    fi; \
-    apt-get update; \
+RUN apt-get update; \
     apt-get install -y --no-install-recommends \
         ros-jazzy-tf-transformations \
         ros-jazzy-example-interfaces; \

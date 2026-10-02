@@ -853,12 +853,26 @@ cd /home/my/workspace/slam/my-slam
 
 ## 构建网络记录
 
-截至 **2026-09-28**，当前 Dockerfile **没有默认使用国内镜像**，APT 使用：
+**当前 Dockerfile 默认使用国内镜像，而且换源不在安装层里 —— 它单独一层，放在安装层之前。**
 
-- Ubuntu ARM64：`ports.ubuntu.com/ubuntu-ports`
-- ROS 2：`packages.ros.org/ros2/ubuntu`
+| 层 | 做什么 |
+| --- | --- |
+| 换源层 | 只做 `sed`（Ubuntu → TUNA、ROS 2 → USTC），不跑 `apt`，所以这层极小 |
+| 大安装层 | 约 25 个包，**走国内源** |
 
-首次构建实际下载约 836 MB，在当前机器上约耗时 51 分钟；后续启动会复用本地镜像缓存，不应重复下载这层。
+为什么要提前、且单独一层：换源如果放在安装层**之后**，那 836 MB 就全走官方源。
+实测本机访问 `packages.ros.org` 只有 **14 KB/s**、`ports.ubuntu.com` 同样慢，
+而 `mirrors.ustc.edu.cn` 约 **5.8 MB/s**（相差约 400 倍）。
+**这是首次构建慢的唯一原因，与层的划分无关。**
+
+换源层会校验替换结果：基础镜像的源文件结构一旦变了就**直接报错退出**，
+而不是悄悄退回官方源慢慢装。
+
+要回到官方源：
+
+```bash
+docker compose build --build-arg APT_USE_CN_MIRROR=0
+```
 
 容器用户名和 UID/GID 参数定义在依赖安装层之后，修改用户配置不需要重新安装 ROS。
 Dockerfile 前部保留首次构建的旧参数默认值，用于复用已完成的依赖层缓存。
@@ -869,8 +883,7 @@ Dockerfile 前部保留首次构建的旧参数默认值，用于复用已完成
 - ROS 2 Jazzy：阿里云、清华大学、中科大、南京大学的 `ros2/ubuntu` `noble` 索引
 
 ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
-`ros2/ubuntu/dists/jazzy`。当前配置暂不自动切换源，以保持已经构建好的镜像和默认环境稳定；
-如需切换，应在重新构建前明确指定并重新验证完整依赖下载。
+`ros2/ubuntu/dists/jazzy`。
 
 ## 常用入口
 
@@ -883,7 +896,8 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 | `./scripts/shell.sh` | 交互式进入容器（推荐用这个） |
 | `./scripts/sim.sh` | 一键启动 mybot 的 Gazebo Sim 仿真 |
 | `./scripts/teleop.sh` | 键盘遥控 mybot |
-| `./scripts/rviz2.sh` / `./scripts/rqt.sh` | 图形化调试 |
+| `./scripts/rviz2.sh` | 图形化调试（rviz2） |
+| `./scripts/rqt.sh` | 图形化调试（rqt）；启动前自动清掉插件列表缓存，`--keep-config` 保留布局 |
 | `./scripts/stop-gui.sh` | 关掉 `rviz2` / `rqt`（`--with-gazebo` 连仿真一起停） |
 | `./scripts/stop-teleop.sh` | 清掉残留的 `mybot_teleop.py` |
 | `./scripts/stop-all.sh` | 一键全清（`--with-container` 连容器一起停） |
@@ -1395,9 +1409,14 @@ Rotation: in RPY (radian) [0.000, -0.000, 0.000]
 sudo apt install ros-jazzy-mrpt2 -y
 3d-rotation-converter
 
-sudo apt install ros-$ROS_DISTRO-rqt-tf-tree
-sudo apt install ros-jazzy-rqt-tf-tree
+# rqt_tf_tree 已经装进镜像了（Dockerfile 的 apt 层），不用再手动 apt install。
+# 但它能不能出现在 Plugins 菜单里，还取决于 rqt 的插件列表缓存：
+# rqt 首次运行会把「插件列表 + 面板布局」写进 ~/.config/ros.org/rqt_gui.ini，
+# 之后只读它、不再重新扫插件 —— 所以后装的插件必须先把 ini 删掉。
+# ./scripts/rqt.sh 已经自动做了这件事（想保留面板布局加 --keep-config）。
+# 手动做法（排查时用）：
 rm -rf ~/.config/ros.org/rqt_gui.ini
+ros2 run rqt_tf_tree rqt_tf_tree            # 也可以不起 rqt、直接开 TF 树窗口
 
 sudo apt install ros-$ROS_DISTRO-tf-transformations
 from tf_transformations import quaternion_from_euler, euler_from_quaternion
