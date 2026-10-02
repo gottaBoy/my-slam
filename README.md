@@ -80,6 +80,7 @@ my-slam/
 │                                       早期 Apollo 风格命名，只是上面三个的薄别名
 │    sim.sh / stop-sim.sh / stop-nav2.sh   仿真与 Nav2 启停
 │    stop-gui.sh                        关掉 rviz2 / rqt（--with-gazebo 连仿真一起）
+│    stop-all.sh                       一键全清（仿真 + Nav2 + 图形 + 遥控）
 │    stop-teleop.sh                     清掉残留的键盘遥控节点
 │    teleop.sh / rviz2.sh / rqt.sh / gazebo.sh   交互工具
 │    gpu-check.sh / check-models.py     环境与模型自检
@@ -171,27 +172,32 @@ cd /home/my/workspace/slam/my-slam
 ### 三、停止
 
 ```bash
-# 停仿真：到跑 ./scripts/sim.sh 的那个终端按 Ctrl-C 即可。
+# 如果跑 ./scripts/sim.sh 的那个终端还在，直接在那按 Ctrl-C 最省事。
 # 注意：./scripts/sim.sh --clean 的语义是「清理后接着启动」，不是停止，别拿它当停止用。
 
-# 如果那个终端已经关了、或者 Ctrl-C 后还有残留进程，用这条手动清：
-#   * 方括号是故意的 —— 防止 pkill 匹配到「正在执行清理的这条命令」自身而自杀
-#   * 末尾的 || true 也是必须的 —— 没有匹配到进程时 pkill 返回 1，不加会让整条命令报错退出
-./scripts/shell.sh -c 'pkill -9 -f "gz si[m]" || true; pkill -9 -f "ros2 launc[h]" || true'
+# 记不住该停哪个 —— 一键全清（仿真 + Nav2 + 图形工具 + 遥控），容器保留：
+./scripts/stop-all.sh
+./scripts/stop-all.sh --with-container   # 连容器一起停（内部会调 stop.sh）
 
-# 关掉图形化工具（rviz2 / rqt）。它们和仿真无关，stop-sim.sh 不管它们。
-# rqt 不理会 SIGTERM（pkill 返回 0 但进程还在），所以脚本内部直接用的是 kill -9 ——
-# 见 docs/问题记录.md F-12。
-./scripts/stop-gui.sh
-./scripts/stop-gui.sh --with-gazebo   # 图形工具 + Gazebo 一起停
+# 只停某一类 —— 一个 start 脚本配一个 stop：
+./scripts/stop-sim.sh          # Gazebo 仿真栈（对应 sim.sh）
+./scripts/stop-nav2.sh         # Nav2 / 巡逻，保留仿真
+./scripts/stop-gui.sh          # rviz2 / rqt；--with-gazebo 连仿真一起停
+./scripts/stop-teleop.sh       # 残留的键盘遥控（E-9）
 
-# 清掉残留的键盘遥控。正常 Ctrl-C 会自己清；终端被强杀时 SIGKILL 不触发 trap，
-# 遥控节点会留下来继续发 /cmd_vel（见 docs/问题记录.md E-9）。
-./scripts/stop-teleop.sh
-
-# 停容器
+# 停容器本身
 ./scripts/stop.sh
+
+# 确实要手写一条 pkill 时，这两个细节不能省：
+./scripts/shell.sh -c 'pkill -9 -f "gz si[m]" || true'
+#                     ^ 方括号：让模式匹配不到这条命令行自身（见 F-7）
+#                                              ^ || true：没匹配到时 pkill 返回 1，不加会整条报错退出
 ```
+
+> 上面这些 stop 脚本内部都把 `pkill` 模式写在**脚本文件里**而不是命令行里。
+> 写在命令行里会与那条命令自身的文本自匹配，把执行清理的 shell 一起杀掉（`docs/问题记录.md` F-7）；
+> 而且内部一律用 `kill -9` —— `pkill` 的退出码只表示信号发出去了，
+> 不代表进程已终止（实测 `rqt` 就忽略 SIGTERM，见 F-12）。
 
 ### 四、出问题时先看这里
 
@@ -879,6 +885,7 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 | `./scripts/rviz2.sh` / `./scripts/rqt.sh` | 图形化调试 |
 | `./scripts/stop-gui.sh` | 关掉 `rviz2` / `rqt`（`--with-gazebo` 连仿真一起停） |
 | `./scripts/stop-teleop.sh` | 清掉残留的 `mybot_teleop.py` |
+| `./scripts/stop-all.sh` | 一键全清（`--with-container` 连容器一起停） |
 | `./scripts/gazebo.sh` | 只开一个空的 Gazebo GUI（手动摆模型用） |
 | `./scripts/gpu-check.sh` | 排查 GPU / 渲染问题（`failed to create drawable`） |
 
