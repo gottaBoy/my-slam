@@ -80,6 +80,7 @@ my-slam/
 │                                       早期 Apollo 风格命名，只是上面三个的薄别名
 │    sim.sh / stop-sim.sh / stop-nav2.sh   仿真与 Nav2 启停
 │    stop-gui.sh                        关掉 rviz2 / rqt（--with-gazebo 连仿真一起）
+│    stop-teleop.sh                     清掉残留的键盘遥控节点
 │    teleop.sh / rviz2.sh / rqt.sh / gazebo.sh   交互工具
 │    gpu-check.sh / check-models.py     环境与模型自检
 ├─ tools/                               诊断与验证脚本（大多在容器内跑）
@@ -183,6 +184,10 @@ cd /home/my/workspace/slam/my-slam
 # 见 docs/问题记录.md F-12。
 ./scripts/stop-gui.sh
 ./scripts/stop-gui.sh --with-gazebo   # 图形工具 + Gazebo 一起停
+
+# 清掉残留的键盘遥控。正常 Ctrl-C 会自己清；终端被强杀时 SIGKILL 不触发 trap，
+# 遥控节点会留下来继续发 /cmd_vel（见 docs/问题记录.md E-9）。
+./scripts/stop-teleop.sh
 
 # 停容器
 ./scripts/stop.sh
@@ -873,6 +878,7 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 | `./scripts/teleop.sh` | 键盘遥控 mybot |
 | `./scripts/rviz2.sh` / `./scripts/rqt.sh` | 图形化调试 |
 | `./scripts/stop-gui.sh` | 关掉 `rviz2` / `rqt`（`--with-gazebo` 连仿真一起停） |
+| `./scripts/stop-teleop.sh` | 清掉残留的 `mybot_teleop.py` |
 | `./scripts/gazebo.sh` | 只开一个空的 Gazebo GUI（手动摆模型用） |
 | `./scripts/gpu-check.sh` | 排查 GPU / 渲染问题（`failed to create drawable`） |
 

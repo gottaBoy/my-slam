@@ -23,6 +23,8 @@ set -euo pipefail
 # python 进程不一定会跟着退出。残留的 teleop 会继续按最后一条指令发布
 # /cmd_vel，造成「明明没按却还在动」或「新起的遥控行为怪异」。所以这里
 # 无论怎么退出都清一次容器内的同名进程。
+# 注意：SIGKILL 不触发任何 trap。终端被强杀时下面的 cleanup 根本不会执行，
+# 需要事后手动收尾：./scripts/stop-teleop.sh（见 docs/问题记录.md E-9）。
 cleanup() {
     # 这里固定 -T：收尾阶段不需要 TTY，也不该因为 TTY 问题挂住。
     docker compose exec -T "${SERVICE_NAME}" \
