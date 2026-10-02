@@ -37,6 +37,7 @@ Pangolin、g2o 未自动补装，也未修改其他项目自带的依赖。
 > 每个模块**里面**有什么、对外什么接口、和谁交互 → [`docs/模块解剖.md`](docs/模块解剖.md)
 > 踩过的坑与排查过程（问题 / 现象 / 原因 / 解决） → [`docs/问题记录.md`](docs/问题记录.md)
 > 想从零把它学到「能改、能查」→ [`docs/上手路线.md`](docs/上手路线.md)（五层模型 + 关键点速查）
+> 单个模块的深挖与自测清单 → [`docs/模块详解-mybot_description.md`](docs/模块详解-mybot_description.md)
 
 `my-slam/src/` 下 **22 个包**，按功能分 4 组：
 
