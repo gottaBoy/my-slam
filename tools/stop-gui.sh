@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 在容器内停掉图形化调试工具（rviz2 / rqt），不动 Gazebo 仿真、不动 Nav2。
+# 在容器内停掉图形化调试工具（rviz2 / rqt / rqt_tf_tree），不动 Gazebo 仿真、不动 Nav2。
 #
 # 和 stop-sim.sh / stop-nav2-patrol.sh 同理：把 pkill 的模式写进脚本文件，
 # 避免 `docker compose exec ... bash -lc '... pkill -f "xxx" ...'` 时模式与同一
@@ -42,10 +42,14 @@ kill_pat() {
 
 echo "停止图形化调试工具（不动 Gazebo 仿真 / Nav2）："
 
-# rqt 是 python 进程（comm 是 python3），不能用 -x 精确匹配 comm，
+# rqt / rqt_tf_tree 都是 python 进程（comm 是 python3），不能用 -x 精确匹配 comm，
 # 只能按完整命令行匹配，所以写成 bin/rq[t]：既够具体，又不会自匹配。
-kill_pat 'rqt'   'bin/rq[t]'
-kill_pat 'rviz2' 'rviz[2]'
+# rqt_tf_tree 必须单独一条：它的可执行文件在
+#   /opt/ros/jazzy/lib/rqt_tf_tree/rqt_tf_tree
+# 不经过 bin/rqt，光靠 bin/rq[t] 抳不到 —— 实测就这样漏过 2 个进程。
+kill_pat 'rqt'         'bin/rq[t]'
+kill_pat 'rqt_tf_tree' 'rqt_tf_tre[e]'
+kill_pat 'rviz2'       'rviz[2]'
 
 # 进程名精确匹配兜底（-x 比较 comm，不会误伤命令行里恰好含同样字符串的其它进程）。
 # 注意 comm 会被截断到 15 个字符；rqt 不能放进来 —— 它的 comm 是 python3，
@@ -58,8 +62,8 @@ for name in rviz2; do
 done
 
 sleep 1
-left="$(pgrep -f -- 'bin/rq[t]|rviz[2]' 2>/dev/null | wc -l | tr -d ' ')"
-[ "$killed_any" = "0" ] && echo "  （没有发现正在运行的 rviz2 / rqt）"
+left="$(pgrep -f -- 'bin/rq[t]|rqt_tf_tre[e]|rviz[2]' 2>/dev/null | wc -l | tr -d ' ')"
+[ "$killed_any" = "0" ] && echo "  （没有发现正在运行的 rviz2 / rqt / rqt_tf_tree）"
 echo "剩余图形工具进程：$left"
 
 if [ "$with_gazebo" = "1" ]; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 停掉图形化调试工具 rviz2 / rqt（宿主机执行），保留 Gazebo 仿真与 Nav2。
+# 停掉图形化调试工具 rviz2 / rqt / rqt_tf_tree（宿主机执行），保留 Gazebo 仿真与 Nav2。
 #
 # 为什么要有这个脚本：直接写
 #   docker compose exec ... bash -lc 'pkill -f "rviz2"'

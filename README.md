@@ -183,7 +183,7 @@ cd /home/my/workspace/slam/my-slam
 # 只停某一类 —— 一个 start 脚本配一个 stop：
 ./scripts/stop-sim.sh          # Gazebo 仿真栈（对应 sim.sh）
 ./scripts/stop-nav2.sh         # Nav2 / 巡逻，保留仿真
-./scripts/stop-gui.sh          # rviz2 / rqt；--with-gazebo 连仿真一起停
+./scripts/stop-gui.sh          # rviz2 / rqt / rqt_tf_tree；--with-gazebo 连仿真一起停
 ./scripts/stop-teleop.sh       # 残留的键盘遥控（E-9）
 
 # 停容器本身
@@ -898,7 +898,7 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 | `./scripts/teleop.sh` | 键盘遥控 mybot |
 | `./scripts/rviz2.sh` | 图形化调试（rviz2） |
 | `./scripts/rqt.sh` | 图形化调试（rqt）；启动前自动清掉插件列表缓存，`--keep-config` 保留布局 |
-| `./scripts/stop-gui.sh` | 关掉 `rviz2` / `rqt`（`--with-gazebo` 连仿真一起停） |
+| `./scripts/stop-gui.sh` | 关掉 `rviz2` / `rqt` / `rqt_tf_tree`（`--with-gazebo` 连仿真一起停） |
 | `./scripts/stop-teleop.sh` | 清掉残留的 `mybot_teleop.py` |
 | `./scripts/stop-all.sh` | 一键全清（`--with-container` 连容器一起停） |
 | `./scripts/gazebo.sh` | 只开一个空的 Gazebo GUI（手动摆模型用） |

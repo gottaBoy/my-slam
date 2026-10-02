@@ -70,10 +70,13 @@ echo "======================================================================"
 echo "提示：/camera/image、/camera/depth_image、/camera/points 的频率瓶颈是 Gazebo"
 echo "      离屏渲染，不设期望值；只要发布者为 1 且数据自洽即可。"
 echo "      数据自洽性另跑：python3 tools/check_sensor_msgs.py"
+echo "      若只是某一项频率偏低（发布者数正常），**先隔几秒重跑一遍**："
+echo "      本项目出现过一次 /imu 只测到 72 Hz、重跑即 99~100 Hz，原因未定位"
+echo "      （见 docs/问题记录.md E-11）。持续偏低才说明真有问题。"
 
 if [ "$fail" = "0" ]; then
   echo "结论：全部通过"
 else
-  echo "结论：有检查项失败（先确认没有两套桥同时在跑）"
+  echo "结论：有检查项失败（先确认没有两套桥同时在跑；频率项偏低先重跑一次）"
 fi
 exit "$fail"
