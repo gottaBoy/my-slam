@@ -79,6 +79,7 @@ my-slam/
 │    docker_into.sh / docker_run.sh / docker_stop.sh
 │                                       早期 Apollo 风格命名，只是上面三个的薄别名
 │    sim.sh / stop-sim.sh / stop-nav2.sh   仿真与 Nav2 启停
+│    stop-gui.sh                        关掉 rviz2 / rqt（--with-gazebo 连仿真一起）
 │    teleop.sh / rviz2.sh / rqt.sh / gazebo.sh   交互工具
 │    gpu-check.sh / check-models.py     环境与模型自检
 ├─ tools/                               诊断与验证脚本（大多在容器内跑）
@@ -176,6 +177,12 @@ cd /home/my/workspace/slam/my-slam
 #   * 方括号是故意的 —— 防止 pkill 匹配到「正在执行清理的这条命令」自身而自杀
 #   * 末尾的 || true 也是必须的 —— 没有匹配到进程时 pkill 返回 1，不加会让整条命令报错退出
 ./scripts/shell.sh -c 'pkill -9 -f "gz si[m]" || true; pkill -9 -f "ros2 launc[h]" || true'
+
+# 关掉图形化工具（rviz2 / rqt）。它们和仿真无关，stop-sim.sh 不管它们。
+# rqt 不理会 SIGTERM（pkill 返回 0 但进程还在），所以脚本内部直接用的是 kill -9 ——
+# 见 docs/问题记录.md F-12。
+./scripts/stop-gui.sh
+./scripts/stop-gui.sh --with-gazebo   # 图形工具 + Gazebo 一起停
 
 # 停容器
 ./scripts/stop.sh
@@ -865,6 +872,7 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 | `./scripts/sim.sh` | 一键启动 mybot 的 Gazebo Sim 仿真 |
 | `./scripts/teleop.sh` | 键盘遥控 mybot |
 | `./scripts/rviz2.sh` / `./scripts/rqt.sh` | 图形化调试 |
+| `./scripts/stop-gui.sh` | 关掉 `rviz2` / `rqt`（`--with-gazebo` 连仿真一起停） |
 | `./scripts/gazebo.sh` | 只开一个空的 Gazebo GUI（手动摆模型用） |
 | `./scripts/gpu-check.sh` | 排查 GPU / 渲染问题（`failed to create drawable`） |
 
