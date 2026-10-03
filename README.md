@@ -590,7 +590,9 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | `tools/probe-localization-vs-truth.sh` | 同时录 AMCL 位姿和 Gazebo 真值，用来区分「物理被挡」和「定位飘了」 |
 | `tools/probe_cmd_chain.py` | 同时录 Nav2 速度链三级话题，定位「谁把速度清零了」 |
 | `tools/analyze_cmd_chain.py` | 汇总上面那份记录（按 10 秒分桶看哪一级先变 0） |
-| `tools/run-stuck-repro.sh` | 一键复现「卡住 → 恢复耗尽 → ABORT」并记录全过程 |
+| `tools/run-stuck-repro.sh` | 一键复现「卡住 → 恢复耗尽 → ABORT」并记录全过程（带 lifecycle 前置守卫 + `/cmd_vel` 非零校验，不会静默成功）|
+| `tools/walk_mybot_description.sh` | 走查 `mybot_description` 的第 0~5 步（只读）：xacro 展开、仿真活着、TF 分静态/动态、雷达在哪、两侧话题对照 |
+| `tools/walk_mybot_description_step6.sh` | 同上的第 6 步：把雷达 `update_rate` 10 → 20 再量（自带备份/还原，`status` / `apply` / `measure` / `restore` 四个子命令）|
 | `tools/stop-nav2-patrol.sh` / `stop-nav2.sh` | 安全停止 Nav2 + 巡逻 |
 | `stop-nav2.sh` | 上面脚本的宿主机入口 |
 
