@@ -35,14 +35,26 @@
      | 255 | `NO_INFORMATION` | 未知 |
 
   2. **膨胀层是 exp 衰减，可以算出来再和实测对**。公式来自
-     `inflation_layer.hpp` 的 `computeCost()`：
+     `inflation_layer.hpp` 的 `computeCost()` —— **四段，不是三段**：
 
      ```
      d = 到最近致命格的欧氏距离(格) × resolution
-     d == 0                → 254
-     d <= inscribed_radius → 253
-     否则                  → (unsigned char)(252 × exp(-cost_scaling_factor × (d - inscribed_radius)))
+     d == 0                    → 254
+     d <= inscribed_radius     → 253
+     d >  inflation_radius     → 0     ← 最容易漏的一段
+     否则                       → (unsigned char)(252 × exp(-cost_scaling_factor × (d - inscribed_radius)))
      ```
+
+     ⚠️ **第 3 段是本工具后来补上的** —— `inflation_layer` 里有
+     `if (distance > cell_inflation_radius_) continue;`，**出了这个半径根本不写代价**。
+     本工具早期漏了它，只因**这个房间里几乎所有自由格都在 0.55 m 内**而没暴露。
+     我在一个临时脚本上就因此得出过 52.8% 的假不一致（见 `问题记录.md` F-22 / E-22）。
+
+     ⚠️ **另：`--inscribed` 的默认值是「生效值」不是「配置值」。**
+     配置里 `robot_radius` 写 0.22，但**生效**的约 **0.2255**（E-15）。
+     默认用 0.22 去预测，完全相符率只有 76.9%；用 0.2249 → 93.8%；
+     用 0.2255 → **97.7%**（扫相符率的峰值）。
+     剩下 ~2.3% 全是 `实测 = 预测 + 1`，**未定位**。
 
      本工具用**精确欧氏距离变换**（Felzenszwalb）算每格到最近致命格的距离，
      逐格比对「预测 vs 实测」，并按距离分桶给出对照表。
@@ -139,13 +151,23 @@ def edt_sq(src, w, h):
     return f
 
 
-def predict_cost(d_cells, res, inscribed, csf):
-    """严格照抄 inflation_layer.hpp 的 computeCost()。"""
+def predict_cost(d_cells, res, inscribed, csf, infl):
+    """严格照抄 inflation_layer.hpp 的 computeCost() —— **四段**，不是三段。
+
+    ⚠️ 第 3 段是后来补上的（代价地图刚做时只验证了膨胀半径**以内**）：
+        d > inflation_radius  ->  0
+    `inflation_layer` 里有 `if (distance > cell_inflation_radius_) continue;`，
+    出了这个半径**根本不写代价**。漏了它会把「离墙 0.55~3 m 的广大区域」
+    全部误报成不一致（见 问题记录 F-22 / E-22）。
+    """
     if d_cells == 0:
         return LETHAL
-    if d_cells * res <= inscribed:
+    d_m = d_cells * res
+    if d_m <= inscribed:
         return INSCRIBED
-    factor = math.exp(-csf * (d_cells * res - inscribed))
+    if d_m > infl:
+        return FREE
+    factor = math.exp(-csf * (d_m - inscribed))
     return int((INSCRIBED - 1) * factor) & 0xFF      # unsigned char 截断
 
 
@@ -198,8 +220,10 @@ def main():
                     help='代价地图话题（默认用 *_raw，即真实代价）')
     ap.add_argument('--type', choices=['auto', 'occupancy', 'raw'], default='auto',
                     help='消息类型；auto = 按话题名是否以 _raw 结尾判断')
-    ap.add_argument('--inscribed', type=float, default=0.22,
-                    help='内切半径 (m)，圆车 = robot_radius，默认 0.22')
+    ap.add_argument('--inscribed', type=float, default=0.2249,
+                    help='生效的内切半径 (m)。⚠️ 配置里写 robot_radius=0.22，'
+                         '但**生效**的是 0.2249（见 问题记录 E-15）——'
+                         '默认用 0.22 去预测，会让约 23%% 的格子对不上')
     ap.add_argument('--csf', type=float, default=3.0,
                     help='cost_scaling_factor，默认 3.0')
     ap.add_argument('--infl', type=float, default=0.55,
@@ -271,7 +295,7 @@ def main():
                 dc = math.sqrt(d2[y][x])
                 if dc <= 1e-9:
                     continue
-                pred = predict_cost(dc, res, args.inscribed, args.csf)
+                pred = predict_cost(dc, res, args.inscribed, args.csf, args.infl)
                 key = round(dc, 4)          # 精确到「格」；只可能是 sqrt(a²+b²)
                 buckets.setdefault(key, {})
                 buckets[key][v] = buckets[key].get(v, 0) + 1
@@ -298,7 +322,7 @@ def main():
             topv = sorted(hist.items(), key=lambda kv: -kv[1])[:3]
             n = sum(hist.values())
             meas = topv[0][0]
-            pred = predict_cost(key, res, args.inscribed, args.csf)
+            pred = predict_cost(key, res, args.inscribed, args.csf, args.infl)
             dm = key * res
             if 0 < meas < INSCRIBED:
                 r_fit = dm + math.log(meas / 252.0) / args.csf
