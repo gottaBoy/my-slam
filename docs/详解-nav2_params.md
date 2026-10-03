@@ -414,6 +414,20 @@ critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign",
   所以通道要能过，**净宽必须 > 2 × 内切半径**。
 - **愿不愿意贴边走** —— 由 `inflation_radius` / `cost_scaling_factor` 决定，是**软代价**：
   超过内切半径之后按 `252 · exp(-csf · (d − r))` 衰减，只是让规划器**倾向**走中间。
+  ⚠️ **但衰减只在 `inflation_radius` 之内有效 —— 出了这个半径代价直接归零**
+  （`inflation_layer` 里 `if (distance > cell_inflation_radius_) continue;`）。
+
+完整规则（2026-10-03 用实测逐格验证，3300 个采样点不一致率 **0.1%**）：
+
+```
+clear <= 0                     -> 254   致命
+clear <= inscribed (0.2249)    -> 253   内切：硬阻断
+clear >  inflation_radius      -> 0     出了影响范围，不写代价  ← 最容易漏
+否则                            -> 252 · exp(-csf · (clear − inscribed))
+```
+
+> ⚠️ **三个参数分工**：`inscribed` 管「**能不能过**」、`inflation_radius` 管
+> 「**软代价铺多远**」、`csf` 管「**衰减多快**」。见 `问题记录.md` E-22。
 
 > 🔬 **实测（2026-10-03）**：用 `tools/probe_costmap.py` 从代价地图**反推**实际生效的内切半径 ——
 > `global_costmap` **0.2249 m**、`local_costmap` **0.2248 m**，
@@ -422,7 +436,18 @@ critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign",
 > 换算成「通道净宽要求」就是 `2 × 0.2249 = 0.4498 m`，而不是 `2 × 0.22 = 0.44 m`。
 
 > 💡 这是「导航能过但撞墙」和「导航保守到走不动」之间的旋钮。
-> **改完必须用 `tools/map_reachability.py` 确认目标仍可达** —— 别只看「导航成不成功」。
+> ⚠️ **这两个工具的适用范围不一样**：
+> `tools/map_reachability.py` 读的是**静态地图**，**看不到 `inflation_radius`** ——
+> 它给的是**几何可达性**（能不能过），正好当「地面真值」用；
+> 要看 `inflation_radius` 改了之后路径怎么变，得用 `tools/probe_planner.py`。
+>
+> 🔬 **调大 `inflation_radius` 的反直觉后果（实测）**：0.55 → 1.2 后，
+> 路径**变长 +6%~10%**，而且沿途**最高导航代价反而升高**（50.0 → 106.0）——
+> 因为「干净走廊」的格子变少了，规划器被迫接受更贵的格子。
+> 它仍在最小化代价，**但可供选择的路变差了**。见 `问题记录.md` E-20 改动 2。
+>
+> 🔬 另外：**`error_code=0` + 返回了路径 ≠ 目标可达**。规划器会把到不了的目标
+> **静默搬到最近的合法格**（实测挪了 0.18 m）。见 `问题记录.md` **E-21**。
 
 ### 4.2 层插件
 

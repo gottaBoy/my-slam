@@ -51,6 +51,17 @@ private:
   std::string global_frame_, name_;
   // 插值分辨率
   double interpolation_resolution_;
+
+  // =====【新行为 L4-3】「尽量贴墙走」相关 =====
+  // 目标贴墙距离（米）。<= 0 表示关闭 —— 此时行为与改动前完全一致（直线插值）
+  double wall_clearance_;
+  // 搜索最近障碍的最大半径（米）。出了这个范围就认为「附近没墙」，不动该点
+  double search_radius_;
+  // 找离 (x,y) 最近的致命障碍格。
+  // 返回 false 表示 search_radius_ 内没有障碍。
+  // dist = 距离（米）；(dir_x, dir_y) = 指向该障碍的单位向量。
+  bool nearestObstacle(double x, double y, double &dist, double &dir_x,
+                       double &dir_y);
 };
 
 } // namespace nav2_custom_planner
