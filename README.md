@@ -584,6 +584,7 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | `tools/map_coverage.py` | 有避障的自动巡航建图：逐像素净空选点 + 地图 BFS 路径规划 + `/scan` 安全网 + 卡死脱困，并实时打印 odom / SLAM 与真值之差 —— 用来建一张**不发散**的图 |
 | `tools/probe_costmap.py` | 代价地图取证：语义分层 + 膨胀衰减「预测 vs 实测」+ 反推生效内切半径（默认用 `*_raw` 话题，那个才是 0~255 真实代价） |
 | `tools/probe_map_vs_costmap.py` | 静态地图净空 **vs** 实时 costmap **逐格比对**，并用同一份实测**反推参数**（如 `inflation_radius`）—— 「改完参数怎么知道真生效了」的硬手段 |
+| `tools/probe_path_clearance.py` | **路径净空剖面**：把规划器返回路径上每个点的「离最近障碍距离」算出来（含直线对照）—— 验证「贴墙 / 远离墙」这类改动靠它 |
 | `tools/probe_planner.py` | 全局规划器取证：路径长度 vs 代价积分，自带「只按距离找路」对照组 —— 用来证明 navfn 是**代价驱动** |
 | `tools/probe_dwb.py` | DWB 取证：自己发导航目标，然后摊开 `/evaluation` 看候选轨迹条数与逐 critic 评分 —— 直接回答「为什么选了这个速度」 |
 | `tools/probe_collision_monitor.py` | 安全闸门取证：绕开规划器直接给 `collision_monitor` 喂指令，验证它是否真的在撞上前减速停住 |
