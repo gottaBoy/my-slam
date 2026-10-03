@@ -59,16 +59,24 @@ cexec() {
         tty_args=(-T)
     fi
 
-    local guest_entrypoint="${SLAM_GUEST_ENTRYPOINT_IMAGE}"
-    if [ -f "${SLAM_PROJECT_DIR}/entrypoint.sh" ]; then
-        guest_entrypoint="${SLAM_GUEST_ENTRYPOINT_MOUNTED}"
-    fi
+        # 把「保留挂载根 cwd」这个逃生开关透传进容器（entrypoint.sh 会读它）。
+        # 默认不传 —— 容器默认落在项目根 /workspace/my-slam，
+        # 这样 tools/ 里那些写成相对路径 `python3 tools/xxx.py` 的用法示例才成立。
+        local env_args=()
+        if [ -n "${SLAM_KEEP_CWD:-}" ]; then
+            env_args=(-e "SLAM_KEEP_CWD=${SLAM_KEEP_CWD}")
+        fi
 
-    if [ "${CEXEC_NO_EXEC:-0}" = "1" ]; then
-        docker compose exec "${tty_args[@]}" "${SERVICE_NAME}" \
-            "${guest_entrypoint}" "$@"
-    else
-        exec docker compose exec "${tty_args[@]}" "${SERVICE_NAME}" \
-            "${guest_entrypoint}" "$@"
-    fi
-}
+        local guest_entrypoint="${SLAM_GUEST_ENTRYPOINT_IMAGE}"
+        if [ -f "${SLAM_PROJECT_DIR}/entrypoint.sh" ]; then
+            guest_entrypoint="${SLAM_GUEST_ENTRYPOINT_MOUNTED}"
+        fi
+
+        if [ "${CEXEC_NO_EXEC:-0}" = "1" ]; then
+            docker compose exec "${tty_args[@]}" "${env_args[@]}" \
+                "${SERVICE_NAME}" "${guest_entrypoint}" "$@"
+        else
+            exec docker compose exec "${tty_args[@]}" "${env_args[@]}" \
+                "${SERVICE_NAME}" "${guest_entrypoint}" "$@"
+        fi
+    }

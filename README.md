@@ -922,6 +922,11 @@ ROS 2 软件源按 Ubuntu 发行版命名，Jazzy 对应 `noble`，不是
 
 ## 常用入口
 
+> 📌 **容器里默认就站在项目根 `/workspace/my-slam`**
+> （`entrypoint.sh` 会 `cd` 过去；想保留挂载根 `/workspace` 就设 `SLAM_KEEP_CWD=1`）。
+> 所以 `tools/` 下那些写成相对路径的用法示例（`python3 tools/xxx.py`）可以直接照抄。
+> 背景与踩坑经过见 `docs/问题记录.md` F-26。
+
 所有入口都在**宿主机**上执行，脚本内部自己 `docker compose exec` 进容器；宿主机上不需要装
 任何 ROS。workspace overlay（`/workspace/my-slam/install`）由入口脚本自动 source。
 

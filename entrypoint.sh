@@ -57,4 +57,22 @@ unset _cand _setup _slam_saved_ifs _slam_overlay_list
 # 本脚本自己的代码重新用上 nounset，方便早发现问题。
 set -u
 
+# ---- 默认落在「项目根」，而不是挂载根 --------------------------------
+# 镜像的 WORKDIR 是 /workspace，而 bind mount 把宿主机的 slam/ 挂到 /workspace，
+# 项目本体其实在 /workspace/my-slam。于是**每条容器命令的默认 cwd 都是挂载根**，
+# 而 tools/ 下大量脚本的用法示例写的是相对路径 `python3 tools/xxx.py` ——
+# 照抄就报 `can't open file '/workspace/tools/xxx.py'`。
+#
+# 更坏的是：脚本若没写 set -e，会「跑完但什么都没做」还宣布成功。
+# 实测栽过两次（见 docs/问题记录.md F-26）：
+#   * tools/run-stuck-repro.sh 因为这一条，两分钟内没录到任何数据；
+#   * 我自己的 python3 tools/probe_costmap.py 也撞过一次。
+#
+# 与其去改十几个脚本的注释，不如让容器**默认就站在项目根** ——
+# 这样所有写成相对路径的文档/示例同时变正确。
+# 想保留挂载根：设 SLAM_KEEP_CWD=1。
+if [ -z "${SLAM_KEEP_CWD:-}" ] && [ -d /workspace/my-slam ]; then
+    cd /workspace/my-slam
+fi
+
 exec "$@"

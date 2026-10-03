@@ -52,7 +52,8 @@ from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy  # noqa: E
 
 from map_reachability import Map  # noqa: E402
 
-INSCRIBED = 0.2249   # E-15 实测的生效内切半径（配置里 robot_radius 是 0.22）
+INSCRIBED = 0.2249   # 生效内切半径：(配置 robot_radius 是 0.22，见 E-15；
+                     #   扫逐格相符率的峰值其实是 0.2255，差 0.6 mm，未定位)
 CSF = 3.0            # cost_scaling_factor
 INFL = 0.55          # inflation_radius
 
