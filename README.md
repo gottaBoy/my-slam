@@ -479,7 +479,10 @@ Global Planner / Controller / MarkerArray）原样保留。
 
 要让它更愿意走直线，可以（改前先确认车真能过那条缝）：
 - 调小 `inflation_radius`（0.55 → 0.3 左右）或 `cost_scaling_factor`
-- 或把 `planner_server` 里 `use_astar` 改成 `true`
+
+> ⚠️ 别指望换 `use_astar`：实测 A* 与 Dijkstra 走的是**几乎同一条路**
+> （18.50 vs 18.40 m，差 0.5%），两者最小化的是同一个代价函数。
+> 数据见 `docs/问题记录.md` E-16，工具 `tools/probe_planner.py`。
 
 排查手法：
 
@@ -579,6 +582,7 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | `tools/map_reachability.py` | 判断「A 能不能走到 B」+ 算最宽路线的最窄处半径（占用判据按 trinary 阈值，别再自己写） |
 | `tools/map_coverage.py` | 有避障的自动巡航建图：逐像素净空选点 + 地图 BFS 路径规划 + `/scan` 安全网 + 卡死脱困，并实时打印 odom / SLAM 与真值之差 —— 用来建一张**不发散**的图 |
 | `tools/probe_costmap.py` | 代价地图取证：语义分层 + 膨胀衰减「预测 vs 实测」+ 反推生效内切半径（默认用 `*_raw` 话题，那个才是 0~255 真实代价） |
+| `tools/probe_planner.py` | 全局规划器取证：路径长度 vs 代价积分，自带「只按距离找路」对照组 —— 用来证明 navfn 是**代价驱动** |
 | `tools/probe-localization-vs-truth.sh` | 同时录 AMCL 位姿和 Gazebo 真值，用来区分「物理被挡」和「定位飘了」 |
 | `tools/probe_cmd_chain.py` | 同时录 Nav2 速度链三级话题，定位「谁把速度清零了」 |
 | `tools/analyze_cmd_chain.py` | 汇总上面那份记录（按 10 秒分桶看哪一级先变 0） |

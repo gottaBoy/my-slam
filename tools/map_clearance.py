@@ -118,8 +118,9 @@ def main():
     print()
     if worst < args.inflation:
         print('结论：直线大部分被膨胀层覆盖 → 代价高，navfn 绕行是「按代价最小」的正常结果。')
-        print('      想让它走直路，可调小 inflation_radius / cost_scaling_factor，')
-        print('      或把 planner 换成 use_astar: true（仍是最小代价，但路径更短）。')
+        print('      想让它走直路，可调小 inflation_radius / cost_scaling_factor。')
+        print('      ⚠️ 不要指望换 use_astar：实测 A* 与 Dijkstra 走的是几乎同一条路')
+        print('         （见 docs/问题记录.md E-16 与 tools/probe_planner.py）。')
     else:
         print('结论：直线上有足够余量，膨胀层不足以解释绕行 → 另有原因')
         print('      （检查实时障碍层是否把扫描点错误标记、或定位偏移导致幻影障碍）。')

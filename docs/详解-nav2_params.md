@@ -452,8 +452,37 @@ critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign",
 | `planner_plugins` | `["GridBased"]` | 用哪个规划器 | 名字要和下面键一致 |
 | `GridBased.plugin` | `nav2_navfn_planner::NavfnPlanner` | ⚠️ **用 `::` 不是 `/`** | Jazzy 适配 |
 | `GridBased.tolerance` | 0.5 | 目标点在障碍里时，允许多远内找替代 | 调大 → 目标在墙上也能规划 |
-| `GridBased.use_astar` | `false` | Dijkstra（false）还是 A*（true） | A* 更快但路径更贴障碍 |
+| `GridBased.use_astar` | `false` | `false` = Dijkstra，`true` = A* | 🔬 **实测：对路径几乎没影响**（差 0.5%），见下 |
 | `GridBased.allow_unknown` | `true` | 允许穿越未知区域 | 与 `track_unknown_space` 配合 |
+
+> 🔬 **实测（2026-10-03）：navfn 最小化的是「代价」不是「距离」**
+>
+> 起终点 `(2.17, 1.88) → (-4.50, 1.50)`（直线 6.68 m），用 `tools/probe_planner.py` 量：
+>
+> | 路线 | 长度 | 代价积分 `∫(50+0.8·cost)ds` | 沿途最高导航代价 |
+> | --- | ---: | ---: | ---: |
+> | 直线 | 6.68 m | —（不可行） | **253.0**（`x≈-2.12` 处离墙只有 0.05 m） |
+> | **只按距离找路**（对照组） | **17.60 m** | **3383.0** | **253.0**（不惜贴墙） |
+> | **navfn 实际输出** | **18.50 m** | **924.9** | **50.0**（全程纯开阔地） |
+>
+> navfn 多绕 **0.9 m**，代价降 **2458（−72.7%）** → **代价驱动**。
+> 决定性旁证：navfn 输出的沿途最高导航代价 **= 50.0 = `COST_NEUTRAL`**，
+> 它全程只走 `costmap cost = 0` 的格子。
+>
+> **`use_astar` 的 A/B（同一对起终点，只改这一个参数）**：
+>
+> | | 路径点数 | 长度 | 代价积分 |
+> | --- | ---: | ---: | ---: |
+> | `false`（Dijkstra） | 735 | 18.40 m | 920.0 |
+> | `true`（A*） | 739 | **18.50 m** | **924.9** |
+>
+> **差 0.5%，基本是同一条路**（而且 A* 略长）。原因：navfn 的 A* 启发式是**可采纳**的
+> （所有格子的导航代价都 ≥ `COST_NEUTRAL`），两者最小化的是同一个代价函数 → 最优解相同；
+> `use_astar` 影响的是**搜索开销**（扩展多少格子），不是路径形状。
+>
+> ⚠️ 所以：**「想让它走直路就换 A*」是错的**（本仓库原来在 `README.md`、
+> `问题记录.md` E-4、`tools/map_clearance.py` 三处都这么写过，已一并纠正）。
+> 真正的旋钮是 `inflation_radius` / `cost_scaling_factor`，而前提是**那条缝真的过得去**。
 
 ---
 
@@ -722,6 +751,7 @@ ros2 param get /amcl z_hit
 | 目标点可达吗 | `tools/map_reachability.py` |
 | 某段路最窄处多宽 | `tools/map_clearance.py` |
 | 代价地图的数值是什么意思 / 膨胀衰减对不对 | `tools/probe_costmap.py` |
+| 规划器到底在优化什么 | `tools/probe_planner.py` |
 | 速度链有没有吃掉指令 | `tools/probe_cmd_chain.py` + `analyze_cmd_chain.py` |
 | 卡住 → 恢复耗尽的复现 | `tools/run-stuck-repro.sh` |
 | 自定义插件参数 | `tools/make_custom_plugin_params.py` |
