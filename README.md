@@ -578,6 +578,7 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | `tools/check_topic_health.sh` | 检查传感器话题健康：发布者数必须为 1 + 频率是否达标（切换 `sensor_bridge` 后必跑） |
 | `tools/map_reachability.py` | 判断「A 能不能走到 B」+ 算最宽路线的最窄处半径（占用判据按 trinary 阈值，别再自己写） |
 | `tools/map_coverage.py` | 有避障的自动巡航建图：逐像素净空选点 + 地图 BFS 路径规划 + `/scan` 安全网 + 卡死脱困，并实时打印 odom / SLAM 与真值之差 —— 用来建一张**不发散**的图 |
+| `tools/probe_costmap.py` | 代价地图取证：语义分层 + 膨胀衰减「预测 vs 实测」+ 反推生效内切半径（默认用 `*_raw` 话题，那个才是 0~255 真实代价） |
 | `tools/probe-localization-vs-truth.sh` | 同时录 AMCL 位姿和 Gazebo 真值，用来区分「物理被挡」和「定位飘了」 |
 | `tools/probe_cmd_chain.py` | 同时录 Nav2 速度链三级话题，定位「谁把速度清零了」 |
 | `tools/analyze_cmd_chain.py` | 汇总上面那份记录（按 10 秒分桶看哪一级先变 0） |
