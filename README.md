@@ -583,6 +583,7 @@ python3 tools/map_clearance.py --from 2.17 1.88 --to -4.5 1.5
 | `tools/map_coverage.py` | 有避障的自动巡航建图：逐像素净空选点 + 地图 BFS 路径规划 + `/scan` 安全网 + 卡死脱困，并实时打印 odom / SLAM 与真值之差 —— 用来建一张**不发散**的图 |
 | `tools/probe_costmap.py` | 代价地图取证：语义分层 + 膨胀衰减「预测 vs 实测」+ 反推生效内切半径（默认用 `*_raw` 话题，那个才是 0~255 真实代价） |
 | `tools/probe_planner.py` | 全局规划器取证：路径长度 vs 代价积分，自带「只按距离找路」对照组 —— 用来证明 navfn 是**代价驱动** |
+| `tools/probe_dwb.py` | DWB 取证：自己发导航目标，然后摊开 `/evaluation` 看候选轨迹条数与逐 critic 评分 —— 直接回答「为什么选了这个速度」 |
 | `tools/probe-localization-vs-truth.sh` | 同时录 AMCL 位姿和 Gazebo 真值，用来区分「物理被挡」和「定位飘了」 |
 | `tools/probe_cmd_chain.py` | 同时录 Nav2 速度链三级话题，定位「谁把速度清零了」 |
 | `tools/analyze_cmd_chain.py` | 汇总上面那份记录（按 10 秒分桶看哪一级先变 0） |

@@ -267,6 +267,46 @@ docking_server ────────────────────┘�
 
 DWB = 在**速度空间里撒采样点**，用一串「评分器」打分，选最高分的。
 
+> 🔬 **实测（2026-10-03）：怎么看见它在干什么**
+>
+> DWB 把**每条候选轨迹的完整评分**发在 `/evaluation` 上
+> （`dwb_msgs/msg/LocalPlanEvaluation`，本项目 `publish_evaluation` 默认为 `True`）。
+> `tools/probe_dwb.py --goal X Y` 可以直接摊开看。选中那条的明细长这样：
+>
+> | critic | raw_score | scale | raw×scale |
+> | --- | ---: | ---: | ---: |
+> | RotateToGoal | 0.00 | 32.000 | 0.00 |
+> | Oscillation | 0.00 | 1.000 | 0.00 |
+> | BaseObstacle | 0.00 | 0.020 | 0.00 |
+> | GoalAlign | 18.00 | **0.600** | 10.80 |
+> | PathAlign | 0.00 | **0.800** | 0.00 |
+> | PathDist | 0.00 | **0.800** | 0.00 |
+> | GoalDist | 20.00 | **0.600** | 12.00 |
+> | **合计** | | | **22.80** ← 就是它赢了 |
+>
+> 两条**可证伪**的断言每次都成立：`best_index == argmin(total)`、
+> `total == Σ(raw_score × scale)`（差 < 1e-6）。
+>
+> ⚠️ **候选轨迹条数 = `vx_samples × (vtheta_samples + 1) − 1`**
+> （实测 20/20 → **419**；10/20 → **209**）。θ 网格比 `vtheta_samples` **多一个「不转」**；
+> `vy_samples: 5` **完全不参与**（差速车没有 y 自由度）。
+>
+> ⚠️ **`MapGridCritic` 家族的生效 `scale` = 配置值 × `resolution` / 2**
+>
+> | `local_costmap.resolution` | `GoalAlign`（配置 24.0） | `PathAlign`（配置 32.0） |
+> | --- | ---: | ---: |
+> | 0.05 | **0.600**（÷40） | **0.800**（÷40） |
+> | 0.025 | **0.300**（÷80） | **0.400**（÷80） |
+>
+> 受影响的是 `PathAlign` / `GoalAlign` / `PathDist` / `GoalDist` 四个；
+> `RotateToGoal` / `Oscillation` / `BaseObstacle` **就是配置值**。
+> 已用实验逐个排除 `angular_granularity`、`vx_samples`、`linear_granularity`
+> （改它们都不影响生效 scale）。**那个 `/2` 的来历未定位**。
+>
+> **实操含义**：配置里写 `PathAlign.scale: 32`，在 `res=0.05` 下**实际只相当于 0.8** ——
+> 所以「把 scale 从 32 调到 35」这种微调几乎不可能看出效果。
+> 详见 `docs/问题记录.md` E-17。
+
 #### 速度与加速度限制（8 项）
 
 | 参数 | 值 | 含义 | 怎么调 |
