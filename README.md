@@ -40,6 +40,7 @@ Pangolin、g2o 未自动补装，也未修改其他项目自带的依赖。
 > 单个模块的深挖与自测清单 → [`docs/模块详解-mybot_description.md`](docs/模块详解-mybot_description.md)
 > Nav2 参数逐项含义 / 为什么 / 怎么调 → [`docs/详解-nav2_params.md`](docs/详解-nav2_params.md)
 > **准备面试 / 复盘**：每题的「一句话答案 + 为什么 + 实测出处」→ [`docs/面试速查.md`](docs/面试速查.md)
+> **想自己动手学会（而不是只看结论）**→ [`docs/动手练习册.md`](docs/动手练习册.md)：答案不在本页、参数故意不同、有判分标准
 
 `my-slam/src/` 下 **22 个包**，按功能分 4 组：
 
