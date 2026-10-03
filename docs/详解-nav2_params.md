@@ -557,6 +557,20 @@ critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign",
 
 ## 八、`velocity_smoother` — 速度平滑（14 项）
 
+> 🔬 **实测（2026-10-03）：它是速度链上的硬限速者**
+>
+> 只把 `max_velocity[0]` 从 0.26 改成 **0.15**（DWB 的 `max_vel_x` 仍是 0.26），
+> 用 `tools/probe_cmd_chain.py` 同时录三级：
+>
+> | 话题 | 发布者 | vx 范围 |
+> | --- | --- | --- |
+> | `/cmd_vel_nav` | `controller_server`（DWB） | **[0, 0.260]** |
+> | `/cmd_vel_smoothed` | `velocity_smoother` | **[0, 0.150]** |
+> | `/cmd_vel` | `collision_monitor` → 机器人 | **[0, 0.150]** |
+>
+> DWB 发 0.26，被它压到 0.15，**下游全是 0.15**。
+> 所以「三处限速取最小值」是真的，而且**限速就发生在这一级**（见 §14.2）。
+
 把控制器输出的突变速度**平滑成连续变化**，保护电机、减少打滑。
 
 | 参数 | 值 | 含义 | 怎么调 |
@@ -575,6 +589,28 @@ critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign",
 ---
 
 ## 九、`collision_monitor` — 安全闸门（18 项）
+
+> 🔬 **实测（2026-10-03）：它真的会减速停住**
+>
+> ⚠️ 走正常导航**测不出来** —— 全局规划器**永远不会**朝墙冲。
+> 必须绕开规划器：把 `cmd_vel_in_topic` 改成私有话题，再直接喂指令
+> （工具 `tools/probe_collision_monitor.py`）。
+>
+> 实测减速曲线（`FootprintApproach`，`action_type: approach`，
+> `time_before_collision: 1.2`，持续发 0.25 m/s）：
+>
+> | 前方 (m) | 放行的 v | 比例 |
+> | ---: | ---: | ---: |
+> | 0.49 | 0.229 | **0.92** ← 开始减速 |
+> | 0.42 | 0.146 | 0.58 |
+> | 0.32 | 0.083 | 0.33 |
+> | 0.27 | 0.021 | 0.08 |
+> | 0.23 | **0.000** | **0.00** ← 停住 |
+>
+> **停在了离墙 0.23 m**（底盘半径 0.12 m，剩 ~0.11 m 余量）。
+> 实测数据可拟合为 `放行 v ≈ (d − robot_radius) / time_before_collision`，
+> 但个别点差约 30%，只能算拟合（确切实现在未安装的 `.cpp` 里）。
+> 详见 `问题记录.md` E-19。
 
 **独立于规划层**的最后一道闸门，直接看传感器决定「能不能走」。
 
@@ -825,6 +861,12 @@ mybot_ros2_controller.yaml        的轮速限制
 ```
 
 **取最小值。改一处可能完全不生效。**
+
+> 🔬 **实测（2026-10-03）**：把 `velocity_smoother.max_velocity[0]` 压到 0.15
+> 而 DWB 的 `max_vel_x` 保持 0.26，三级话题的 vx 范围是
+> `0.260`（nav）→ `0.150`（smoothed）→ `0.150`（cmd_vel）。
+> **限速就发生在 `velocity_smoother` 这一级**，下游全部被它钳住。
+> 详见 `问题记录.md` E-19，工具 `tools/probe_cmd_chain.py`（`--analyze` 可回放）。
 
 这与 `问题记录.md` B-8（`ros2 param set` 返回成功但不生效）是同一类陷阱：
 **改完必须验证参数真的生效了。**

@@ -57,13 +57,47 @@ def fmt(v):
     return f'{v[0]:+6.3f} {v[1]:+6.3f}'
 
 
+def _num(tok):
+    """⚠️ fmt() 在「还没收到数据」时会写 `-` 占位符，读回来不能直接 float()。
+    写和读必须用同一套约定 —— 之前这里就是栽在这上面（见 F-21）。
+    """
+    try:
+        return float(tok)
+    except (TypeError, ValueError):
+        return None
+
+
+def summarize(lines, topics):
+    print()
+    print('=== 各话题的速度范围（非零才算「在发指令」）===')
+    # lines[0] 和 lines[1] 都是表头，数据从 lines[2] 开始
+    col = [ln.split() for ln in lines[2:]]
+    for i, t in enumerate(topics):
+        idx = 1 + 2 * i
+        vx = [x for x in (_num(p[idx]) for p in col if len(p) > idx)
+              if x is not None]
+        if not vx:
+            print(f'  {t:<20} （没有数据，或全是占位符）')
+            continue
+        nz = sum(1 for v in vx if abs(v) > 0.005)
+        print(f'  {t:<20} vx ∈ [{min(vx):+.3f}, {max(vx):+.3f}]   '
+              f'非零采样 {nz}/{len(vx)}')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--seconds', type=float, default=120.0)
     ap.add_argument('--out', default='/tmp/chain.txt')
     ap.add_argument('--period', type=float, default=0.5,
                     help='采样周期（秒）')
+    ap.add_argument('--analyze', metavar='FILE',
+                    help='只分析已有的记录文件，不再采集')
     args = ap.parse_args()
+
+    if args.analyze:
+        with open(args.analyze) as f:
+            summarize(f.read().splitlines(), TOPICS)
+        return 0
 
     rclpy.init()
     node = Recorder()
@@ -93,19 +127,7 @@ def main():
     print('各话题收到的消息数:')
     for t in TOPICS:
         print(f'  {t:<20} {node.counts[t]}')
-    print()
-    print('=== 各话题的速度范围（非零才算"在发指令"）===')
-    # lines[0] 和 lines[1] 都是表头，数据从 lines[2] 开始
-    col = [ln.split() for ln in lines[2:]]
-    for i, t in enumerate(TOPICS):
-        idx = 1 + 2 * i
-        vx = [float(p[idx]) for p in col if len(p) > idx + 1]
-        if not vx:
-            print(f'  {t:<20} （没有数据）')
-            continue
-        nz = sum(1 for v in vx if abs(v) > 0.005)
-        print(f'  {t:<20} vx ∈ [{min(vx):+.3f}, {max(vx):+.3f}]   '
-              f'非零采样 {nz}/{len(vx)}')
+    summarize(lines, TOPICS)
     node.destroy_node()
     rclpy.shutdown()
     return 0
