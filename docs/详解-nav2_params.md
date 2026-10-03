@@ -367,6 +367,20 @@ critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign",
 | `inflation_radius` | 0.55 | 障碍物影响半径（米） | **调大 → 更保守、可能过不了窄门**；调小 → 敢走但易蹭 |
 | `cost_scaling_factor` | 3.0 | 代价衰减速率 | 调**大** → 衰减快（敢贴墙）；调**小** → 离墙老远就绕 |
 
+**⚠️ 这两个旋钮管的不是同一件事，别混：**
+
+- **能不能过** —— 由**内切半径**（圆车 = `robot_radius`）决定，是**硬阻断**：
+  车中心一旦落入 `cost = 253` 的格子，规划器和控制器都认为那里不可走。
+  所以通道要能过，**净宽必须 > 2 × 内切半径**。
+- **愿不愿意贴边走** —— 由 `inflation_radius` / `cost_scaling_factor` 决定，是**软代价**：
+  超过内切半径之后按 `252 · exp(-csf · (d − r))` 衰减，只是让规划器**倾向**走中间。
+
+> 🔬 **实测（2026-10-03）**：用 `tools/probe_costmap.py` 从代价地图**反推**实际生效的内切半径 ——
+> `global_costmap` **0.2249 m**、`local_costmap` **0.2248 m**，
+> 而配置里 `robot_radius` 写的是 **0.22**（已在运行节点上 `ros2 param get` 复核），
+> **差 +4.9 mm**，且在 8 个独立距离桶上稳定。**原因未定位**（见 `问题记录.md` E-15）。
+> 换算成「通道净宽要求」就是 `2 × 0.2249 = 0.4498 m`，而不是 `2 × 0.22 = 0.44 m`。
+
 > 💡 这是「导航能过但撞墙」和「导航保守到走不动」之间的旋钮。
 > **改完必须用 `tools/map_reachability.py` 确认目标仍可达** —— 别只看「导航成不成功」。
 
@@ -376,7 +390,13 @@ critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign",
 | --- | --- | --- | --- |
 | `voxel_layer` | `VoxelLayer` | **3D** 体素化障碍 | 比 `obstacle_layer` 多高度维度 |
 | `inflation_layer` | `InflationLayer` | 把障碍「撑大」，制造安全边际 | — |
-| `static_layer` | `StaticLayer` | 定义了但**没放进 `plugins` 列表** | ⚠️ **不生效** |
+| `static_layer` | `StaticLayer` | 定义了但**没放进 `plugins` 列表** | ⚠️ **不生效**，见下 |
+
+> 🔬 **实测证据（2026-10-03）**：两条代价地图的致命格（`cost = 254`）数量：
+> `global_costmap` **3475 个**（≈ `room.pgm` 里的 3463 个障碍格，对得上）；
+> `local_costmap` 只有 **34 个** —— 就是 3×3 m 窗口内雷达当场看到的那点东西。
+> 若 `local_costmap` 的 `static_layer` 生效了，这个数字应该接近 `global` 的量级。
+> 测法：`tools/probe_costmap.py --topic /<ns>/costmap_raw`。
 
 ### 4.3 观测源 `scan`（8 项）
 
@@ -701,6 +721,7 @@ ros2 param get /amcl z_hit
 | 定位准不准（AMCL vs gz 真值） | `tools/probe-localization-vs-truth.sh` |
 | 目标点可达吗 | `tools/map_reachability.py` |
 | 某段路最窄处多宽 | `tools/map_clearance.py` |
+| 代价地图的数值是什么意思 / 膨胀衰减对不对 | `tools/probe_costmap.py` |
 | 速度链有没有吃掉指令 | `tools/probe_cmd_chain.py` + `analyze_cmd_chain.py` |
 | 卡住 → 恢复耗尽的复现 | `tools/run-stuck-repro.sh` |
 | 自定义插件参数 | `tools/make_custom_plugin_params.py` |
@@ -719,7 +740,7 @@ ros2 param get /amcl z_hit
 | `amcl.alpha5` | 差速模型不用 |
 | `amcl.beam_skip_distance` / `beam_skip_threshold` / `beam_skip_error_threshold` | `do_beamskip: false` |
 | `amcl.z_short` / `lambda_short` | 模型是 `likelihood_field`，这两项只属 `beam`（⚠️ **待验证**） |
-| `local_costmap.static_layer` | 写了 `plugin` 但**没放进 `plugins` 列表** |
+| `local_costmap.static_layer` | 写了 `plugin` 但**没放进 `plugins` 列表**（实测证据见 §4.2 / `问题记录.md` E-14） |
 | `FollowPath.vy_samples` / `min_vel_y` / `max_vel_y` / `acc_lim_y` / `decel_lim_y` | 差速车没有横移 |
 | `mybot_effort_controller`（在 `mybot_ros2_controller.yaml`） | 定义了但没挂进 launch 事件链 |
 | `map_saver.*` / `waypoint_follower.*` | 本项目不用 |
